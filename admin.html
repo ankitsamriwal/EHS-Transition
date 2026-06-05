@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HR Admin – Alpha Data</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============================================================
+//  SUPABASE CONFIGURATION
+//  Use the SERVICE ROLE key here (admin full-access).
+//  Keep this page behind Vercel password protection.
+//  Supabase Dashboard → Project Settings → API
+// ============================================================
+const SUPABASE_URL          = 'https://jpjbytkggbdehdcxrndu.supabase.co';
+const SUPABASE_SERVICE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwamJ5dGtnZ2JkZWhkY3hybmR1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDY2NDI5MSwiZXhwIjoyMDk2MjQwMjkxfQ.v7xE6J3N6LhOS69uQsBx5jqjT7cOgbfLfDQH5SdObf0';
+const TABLE_EHS    = 'ehs_profiles';
+const TABLE_HIRING = 'hiring_forms';
+
+// ============================================================
+//  ADMIN CREDENTIALS
+//  To change password: run in browser console →
+//    hashPassword('YourNewPassword').then(console.log)
+//  Then paste the result as ADMIN_PASSWORD_HASH below.
+// ============================================================
+const ADMIN_USERNAME      = 'hradmin';
+// Default password: AlphaData@2024   ← CHANGE AFTER FIRST LOGIN
+const ADMIN_PASSWORD_HASH = '1eaf12a721618e37e7e40bbf355adae083e6da9e6765ba0bb03c9a418eedd920';
+// ============================================================
+
+async function hashPassword(p) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+let _adminDb = null;
+function adminDb() {
+  if (!_adminDb) _adminDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  return _adminDb;
+}
+</script>
+<style>
+  :root {
+    --primary:#1e3a5f; --primary-light:#2a5298; --accent:#3b82f6;
+    --bg:#f0f4f8; --card:#fff; --border:#d1dae6; --text:#1a2533;
+    --muted:#64748b; --success:#16a34a; --error:#dc2626;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+  /* ── LOGIN ─────────────────────────────────────── */
+  #login-screen{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);
+  }
+  .login-card{
+    background:#fff;border-radius:16px;padding:40px 36px;width:100%;max-width:400px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.22);
+  }
+  .login-logo{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:4px;}
+  .login-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+  .login-card label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px;}
+  .login-card input{
+    width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 13px;
+    font-size:14px;margin-bottom:16px;outline:none;transition:.2s;
+  }
+  .login-card input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,130,246,.12);}
+  .login-btn{
+    width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-light));
+    color:#fff;border:none;border-radius:8px;padding:12px;font-size:15px;font-weight:600;
+    cursor:pointer;transition:.2s;
+  }
+  .login-btn:hover{opacity:.9;}
+  .login-err{background:#fef2f2;border:1px solid #fecaca;color:var(--error);border-radius:7px;padding:9px 13px;font-size:13px;margin-top:12px;display:none;}
+  .login-badge{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:7px;padding:9px 13px;font-size:12px;margin-bottom:20px;display:flex;gap:8px;align-items:center;}
+
+  /* ── ADMIN SHELL ───────────────────────────────── */
+  #admin-shell{display:none;}
+  header{
+    background:linear-gradient(135deg,var(--primary),var(--primary-light));
+    color:#fff;padding:14px 28px;display:flex;align-items:center;gap:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  .hdr-logo{font-size:18px;font-weight:700;}
+  .hdr-sub{font-size:11px;opacity:.7;margin-top:1px;}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+  .hdr-user{font-size:13px;opacity:.85;}
+  .logout-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;transition:.2s;}
+  .logout-btn:hover{background:rgba(255,255,255,.25);}
+
+  .tabs{background:#fff;border-bottom:2px solid var(--border);display:flex;padding:0 28px;gap:4px;}
+  .tab-btn{padding:12px 22px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);border:none;background:none;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.2s;}
+  .tab-btn:hover{color:var(--accent);}
+  .tab-btn.active{color:var(--primary);border-bottom-color:var(--accent);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+
+  .container{max-width:1100px;margin:24px auto;padding:0 20px 60px;}
+
+  /* ── TOOLBAR ───────────────────────────────────── */
+  .toolbar{
+    display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;
+  }
+  .toolbar h2{font-size:16px;font-weight:600;color:var(--primary);flex:1;}
+  .refresh-btn{background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);display:flex;align-items:center;gap:6px;transition:.2s;}
+  .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .export-group{display:flex;gap:6px;}
+  .exp-btn{
+    border:none;border-radius:7px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:6px;transition:.2s;
+  }
+  .exp-btn.xlsx{background:#217346;color:#fff;}
+  .exp-btn.xlsx:hover{background:#1a5c38;}
+  .exp-btn.json{background:#f59e0b;color:#fff;}
+  .exp-btn.json:hover{background:#d97706;}
+  .exp-btn.md{background:#7c3aed;color:#fff;}
+  .exp-btn.md:hover{background:#6d28d9;}
+  .exp-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  /* ── STATS ─────────────────────────────────────── */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .stat-val{font-size:26px;font-weight:700;color:var(--primary);}
+
+  /* ── TABLE ──────────────────────────────────────── */
+  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+  .search-row{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .search-row input{border:1.5px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;outline:none;flex:1;transition:.2s;}
+  .search-row input:focus{border-color:var(--accent);}
+  .tbl-container{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{background:var(--primary);color:#fff;padding:10px 14px;font-size:12px;text-align:left;white-space:nowrap;font-weight:600;}
+  tbody tr{border-bottom:1px solid var(--border);transition:.15s;}
+  tbody tr:hover{background:#f8faff;}
+  tbody td{padding:9px 14px;font-size:12.5px;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .loading-row td{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+  .empty-row td{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+  .badge-pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;}
+  .badge-ehs{background:#dbeafe;color:#1e40af;}
+  .badge-hr{background:#dcfce7;color:#166534;}
+  .pagination{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+  .pg-btns{display:flex;gap:6px;}
+  .pg-btn{border:1.5px solid var(--border);background:#fff;border-radius:6px;padding:5px 11px;cursor:pointer;font-size:12px;transition:.15s;}
+  .pg-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+  .pg-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .pg-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+  /* ── TOAST ──────────────────────────────────────── */
+  .toast{position:fixed;bottom:24px;right:24px;background:#1a2533;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:.3s;max-width:320px;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast.success{border-left:4px solid var(--success);}
+  .toast.error{border-left:4px solid var(--error);}
+  .toast.info{border-left:4px solid var(--accent);}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @media(max-width:640px){
+    .stats{grid-template-columns:1fr 1fr;}
+    .export-group{flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ LOGIN ============================================================ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Alpha Data</div>
+    <div class="login-sub">HR Admin Portal</div>
+    <div class="login-badge">🔒 Restricted access — authorised HR personnel only</div>
+    <label>Username</label>
+    <input type="text" id="l_user" placeholder="hradmin" autocomplete="username" />
+    <label>Password</label>
+    <input type="password" id="l_pass" placeholder="••••••••••••" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') doLogin()" />
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="login_err">Incorrect username or password.</div>
+  </div>
+</div>
+
+<!-- ============================================================ ADMIN SHELL ============================================================ -->
+<div id="admin-shell">
+  <header>
+    <div>
+      <div class="hdr-logo">Alpha Data — HR Admin</div>
+      <div class="hdr-sub">Employee Data Collection System</div>
+    </div>
+    <div class="hdr-right">
+      <span class="hdr-user" id="hdr_user"></span>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tab-ehs',this)">EHS / Engineering Profiles</button>
+    <button class="tab-btn" onclick="switchTab('tab-hiring',this)">Employee Hiring Forms</button>
+  </div>
+
+  <!-- EHS Tab -->
+  <div id="tab-ehs" class="tab-content active">
+    <div class="container">
+      <div class="stats" id="ehs_stats">
+        <div class="stat-card"><div class="stat-label">Total Records</div><div class="stat-val" id="ehs_total">—</div></div>
+        <div class="stat-card"><div class="stat-label">Last Submitted</div><div class="stat-val" style="font-size:16px;" id="ehs_last">—</div></div>
+        <div class="stat-card"><div class="stat-label">Table</div><div class="stat-val" style="font-size:14px;margin-top:4px;"><span class="badge-pill badge-ehs">EHS_Profiles</span></div></div>
+      </div>
+      <div class="toolbar">
+        <h2>EHS / Engineering Profiles</h2>
+        <button class="refresh-btn" onclick="loadRecords('ehs')">↻ Refresh</button>
+        <div class="export-group">
+          <button class="exp-btn xlsx" id="ehs_xlsx" onclick="exportXLSX('ehs')" disabled>⬇ Excel</button>
+          <button class="exp-btn json" id="ehs_json" onclick="exportJSON('ehs')" disabled>⬇ JSON</button>
+          <button class="exp-btn md"   id="ehs_md"   onclick="exportMD('ehs')"   disabled>⬇ Markdown</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="search-row">
+          <input type="text" id="ehs_search" placeholder="Search by name, email, role…" oninput="filterTable('ehs')" />
+        </div>
+        <div class="tbl-container">
+          <table id="ehs_table">
+            <thead><tr id="ehs_thead"></tr></thead>
+            <tbody id="ehs_tbody"><tr class="loading-row"><td colspan="20">Loading records…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="ehs_page_info">—</span>
+          <div class="pg-btns" id="ehs_pg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hiring Tab -->
+  <div id="tab-hiring" class="tab-content">
+    <div class="container">
+      <div class="stats">
+        <div class="stat-card"><div class="stat-label">Total Records</div><div class="stat-val" id="hr_total">—</div></div>
+        <div class="stat-card"><div class="stat-label">Last Submitted</div><div class="stat-val" style="font-size:16px;" id="hr_last">—</div></div>
+        <div class="stat-card"><div class="stat-label">Table</div><div class="stat-val" style="font-size:14px;margin-top:4px;"><span class="badge-pill badge-hr">Hiring_Forms</span></div></div>
+      </div>
+      <div class="toolbar">
+        <h2>Employee Hiring Forms</h2>
+        <button class="refresh-btn" onclick="loadRecords('hr')">↻ Refresh</button>
+        <div class="export-group">
+          <button class="exp-btn xlsx" id="hr_xlsx" onclick="exportXLSX('hr')" disabled>⬇ Excel</button>
+          <button class="exp-btn json" id="hr_json" onclick="exportJSON('hr')"  disabled>⬇ JSON</button>
+          <button class="exp-btn md"   id="hr_md"   onclick="exportMD('hr')"    disabled>⬇ Markdown</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="search-row">
+          <input type="text" id="hr_search" placeholder="Search by name, email, company…" oninput="filterTable('hr')" />
+        </div>
+        <div class="tbl-container">
+          <table id="hr_table">
+            <thead><tr id="hr_thead"></tr></thead>
+            <tbody id="hr_tbody"><tr class="loading-row"><td colspan="20">Loading records…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <span id="hr_page_info">—</span>
+          <div class="pg-btns" id="hr_pg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======== STATE ========
+const state = {
+  ehs: { records: [], filtered: [], page: 1, perPage: 20, cols: [] },
+  hr:  { records: [], filtered: [], page: 1, perPage: 20, cols: [] },
+};
+
+// ======== LOGIN ========
+async function doLogin() {
+  const u = document.getElementById('l_user').value.trim();
+  const p = document.getElementById('l_pass').value;
+  const err = document.getElementById('login_err');
+  err.style.display = 'none';
+
+  if (!u || !p) { err.textContent = 'Please enter username and password.'; err.style.display='block'; return; }
+
+  const hash = await hashPassword(p);
+  if (u !== ADMIN_USERNAME || hash !== ADMIN_PASSWORD_HASH) {
+    err.textContent = 'Incorrect username or password.';
+    err.style.display = 'block';
+    return;
+  }
+  sessionStorage.setItem('hr_authed', '1');
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-shell').style.display  = 'block';
+  document.getElementById('hdr_user').textContent = `👤 ${u}`;
+  loadRecords('ehs');
+  loadRecords('hr');
+}
+
+function doLogout() {
+  sessionStorage.removeItem('hr_authed');
+  location.reload();
+}
+
+// Check persisted session
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('hr_authed') === '1') {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-shell').style.display  = 'block';
+    document.getElementById('hdr_user').textContent = `👤 ${ADMIN_USERNAME}`;
+    loadRecords('ehs');
+    loadRecords('hr');
+  }
+});
+
+// ======== TAB ========
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ======== FETCH ALL RECORDS FROM SUPABASE ========
+async function fetchAll(tableName) {
+  if (SUPABASE_URL.includes('YOUR_PROJECT_ID')) {
+    throw new Error('Supabase not configured. Set SUPABASE_URL and SUPABASE_SERVICE_KEY at the top of admin.html.');
+  }
+  // Supabase limits to 1000 rows per request; page through if needed
+  const all = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    const { data, error } = await adminDb()
+      .from(tableName)
+      .select('*')
+      .order('submitted_at', { ascending: false })
+      .range(from, from + batchSize - 1);
+    if (error) throw new Error(error.message);
+    all.push(...(data || []));
+    if (!data || data.length < batchSize) break;
+    from += batchSize;
+  }
+  return all;
+}
+
+// ======== LOAD RECORDS ========
+async function loadRecords(key) {
+  const tableName = key === 'ehs' ? TABLE_EHS : TABLE_HIRING;
+  const tbodyId   = key === 'ehs' ? 'ehs_tbody' : 'hr_tbody';
+  const theadId   = key === 'ehs' ? 'ehs_thead' : 'hr_thead';
+  const tbody     = document.getElementById(tbodyId);
+  const thead     = document.getElementById(theadId);
+
+  tbody.innerHTML = `<tr class="loading-row"><td colspan="20"><span class="spinner"></span> Loading…</td></tr>`;
+  try {
+    const records = await fetchAll(tableName);
+    state[key].records  = records;
+    state[key].filtered = records;
+    state[key].page     = 1;
+
+    // Derive columns from first record (exclude id/internal cols from display if desired)
+    const cols = records.length ? Object.keys(records[0]) : [];
+    state[key].cols = cols;
+
+    // Build header
+    thead.innerHTML = '<th>#</th>' + cols.map(c => `<th title="${c}">${c.replace(/_/g,' ')}</th>`).join('');
+    renderTable(key);
+    enableExports(key);
+    updateStats(key, records);
+    showToast(`✅ ${records.length} records loaded from ${tableName}`, 'success');
+  } catch(e) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="20">⚠️ ${e.message}</td></tr>`;
+    showToast(`❌ ${e.message}`, 'error');
+  }
+}
+
+function updateStats(key, records) {
+  const prefix = key === 'ehs' ? 'ehs' : 'hr';
+  document.getElementById(`${prefix}_total`).textContent = records.length;
+  if (records.length) {
+    const last = records[0].submitted_at;
+    document.getElementById(`${prefix}_last`).textContent = last ? last.slice(0,10) : '—';
+  }
+}
+
+// ======== RENDER TABLE (paginated) ========
+function renderTable(key) {
+  const { filtered, page, perPage, cols } = state[key];
+  const tbodyId = key === 'ehs' ? 'ehs_tbody' : 'hr_tbody';
+  const tbody   = document.getElementById(tbodyId);
+  const total   = filtered.length;
+  const start   = (page - 1) * perPage;
+  const slice   = filtered.slice(start, start + perPage);
+
+  if (!slice.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="20">No records found.</td></tr>';
+  } else {
+    tbody.innerHTML = slice.map((rec, i) => {
+      const cells = cols.map(c => {
+        let v = rec[c] ?? '';
+        if (typeof v === 'object') v = JSON.stringify(v);
+        v = String(v).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<td title="${v}">${v}</td>`;
+      }).join('');
+      return `<tr><td style="color:var(--muted);font-size:11px;">${start+i+1}</td>${cells}</tr>`;
+    }).join('');
+  }
+
+  // Page info
+  const pgInfo = document.getElementById(`${key === 'ehs' ? 'ehs' : 'hr'}_page_info`);
+  pgInfo.textContent = `${Math.min(start+1, total)}–${Math.min(start+perPage, total)} of ${total}`;
+  buildPagination(key, Math.ceil(total / perPage));
+}
+
+function buildPagination(key, totalPages) {
+  const pgEl   = document.getElementById(`${key === 'ehs' ? 'ehs' : 'hr'}_pg`);
+  const cur    = state[key].page;
+  let html     = `<button class="pg-btn" onclick="changePage('${key}', ${cur-1})" ${cur<=1?'disabled':''}>‹ Prev</button>`;
+  const start  = Math.max(1, cur-2), end = Math.min(totalPages, cur+2);
+  for (let p=start; p<=end; p++) {
+    html += `<button class="pg-btn ${p===cur?'active':''}" onclick="changePage('${key}', ${p})">${p}</button>`;
+  }
+  html += `<button class="pg-btn" onclick="changePage('${key}', ${cur+1})" ${cur>=totalPages?'disabled':''}>Next ›</button>`;
+  pgEl.innerHTML = html;
+}
+
+function changePage(key, page) {
+  state[key].page = page;
+  renderTable(key);
+}
+
+// ======== SEARCH / FILTER ========
+function filterTable(key) {
+  const q = document.getElementById(`${key === 'ehs' ? 'ehs' : 'hr'}_search`).value.toLowerCase();
+  state[key].filtered = q
+    ? state[key].records.filter(r => JSON.stringify(r.fields).toLowerCase().includes(q))
+    : state[key].records;
+  state[key].page = 1;
+  renderTable(key);
+}
+
+// ======== ENABLE EXPORTS ========
+function enableExports(key) {
+  const prefix = key === 'ehs' ? 'ehs' : 'hr';
+  ['xlsx','json','md'].forEach(t => {
+    const btn = document.getElementById(`${prefix}_${t}`);
+    if (btn) btn.disabled = false;
+  });
+}
+
+// ======== FLAT RECORDS ARRAY (Supabase returns plain objects already) ========
+function flatRecords(key) {
+  return state[key].records;
+}
+
+// ======== EXPORT EXCEL ========
+function exportXLSX(key) {
+  const rows = flatRecords(key);
+  if (!rows.length) { showToast('No records to export.','info'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, key === 'ehs' ? 'EHS Profiles' : 'Hiring Forms');
+  // Auto column width
+  const colWidths = Object.keys(rows[0]).map(k => ({ wch: Math.min(40, Math.max(k.length, 12)) }));
+  ws['!cols'] = colWidths;
+  const fname = `${key === 'ehs' ? 'EHS_Profiles' : 'Hiring_Forms'}_${today()}.xlsx`;
+  XLSX.writeFile(wb, fname);
+  showToast(`✅ Excel file downloaded: ${fname}`, 'success');
+}
+
+// ======== EXPORT JSON ========
+function exportJSON(key) {
+  const rows = flatRecords(key);
+  if (!rows.length) { showToast('No records to export.','info'); return; }
+  const blob = new Blob([JSON.stringify(rows, null, 2)], {type:'application/json'});
+  const fname = `${key === 'ehs' ? 'EHS_Profiles' : 'Hiring_Forms'}_${today()}.json`;
+  dlBlob(blob, fname);
+  showToast(`✅ JSON downloaded: ${fname}`, 'success');
+}
+
+// ======== EXPORT MARKDOWN ========
+function exportMD(key) {
+  const rows = flatRecords(key);
+  if (!rows.length) { showToast('No records to export.','info'); return; }
+  const cols = Object.keys(rows[0]);
+  const header = '| ' + cols.join(' | ') + ' |';
+  const sep    = '| ' + cols.map(() => '---').join(' | ') + ' |';
+  const body   = rows.map(r =>
+    '| ' + cols.map(c => String(r[c] ?? '').replace(/\|/g,'\\|').replace(/\n/g,' ')).join(' | ') + ' |'
+  ).join('\n');
+  const title = key === 'ehs' ? '# EHS / Engineering Profiles' : '# Employee Hiring Forms';
+  const md    = `${title}\n\n_Exported: ${new Date().toLocaleString()}_\n\n${header}\n${sep}\n${body}\n`;
+  const blob  = new Blob([md], {type:'text/markdown'});
+  const fname = `${key === 'ehs' ? 'EHS_Profiles' : 'Hiring_Forms'}_${today()}.md`;
+  dlBlob(blob, fname);
+  showToast(`✅ Markdown downloaded: ${fname}`, 'success');
+}
+
+// ======== HELPERS ========
+function today() { return new Date().toISOString().slice(0,10); }
+function dlBlob(blob, fname) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname; a.click();
+  URL.revokeObjectURL(url);
+}
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 4500);
+}
+</script>
+</body>
+</html>

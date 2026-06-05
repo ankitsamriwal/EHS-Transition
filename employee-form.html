@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Employee Data Collection – Alpha Data</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============================================================
+//  SUPABASE CONFIGURATION — fill these in before deploying
+//  Find both values in: Supabase Dashboard → Project Settings → API
+// ============================================================
+const SUPABASE_URL      = 'https://jpjbytkggbdehdcxrndu.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwamJ5dGtnZ2JkZWhkY3hybmR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NjQyOTEsImV4cCI6MjA5NjI0MDI5MX0.Bvl4MZuWvTVQ2OueijPATTsHrxLKbBYXPmVn5RAbIFo';  // safe to expose — RLS enforced
+// ============================================================
+let _db = null;
+function db() {
+  if (!_db) _db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return _db;
+}
+</script>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2a5298;
+    --accent: #3b82f6;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --border: #d1dae6;
+    --text: #1a2533;
+    --muted: #64748b;
+    --success: #16a34a;
+    --error: #dc2626;
+    --input-bg: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  /* Header */
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  header .logo { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+  header .subtitle { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  .badge { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 2px 10px; font-size: 11px; margin-left: auto; }
+
+  /* Tab bar */
+  .tabs { background: #fff; border-bottom: 2px solid var(--border); display: flex; padding: 0 32px; gap: 4px; }
+  .tab-btn {
+    padding: 14px 24px; cursor: pointer; font-size: 14px; font-weight: 500;
+    color: var(--muted); border: none; background: none; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all 0.2s; display: flex; align-items: center; gap: 8px;
+  }
+  .tab-btn:hover { color: var(--accent); }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--accent); }
+  .tab-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); opacity: 0; }
+  .tab-btn.active .tab-indicator { opacity: 1; }
+
+  /* Layout */
+  .container { max-width: 960px; margin: 28px auto; padding: 0 20px 60px; }
+
+  /* Section card */
+  .section-card {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .section-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; padding: 12px 20px; font-weight: 600; font-size: 13px;
+    display: flex; align-items: center; gap: 8px; letter-spacing: 0.3px;
+  }
+  .section-num { background: rgba(255,255,255,0.2); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .section-body { padding: 20px; }
+
+  /* Form grid */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.col-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.col-1 { grid-template-columns: 1fr; }
+  .full-width { grid-column: 1 / -1; }
+
+  /* Form groups */
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-weight: 500; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  label .required { color: var(--error); margin-left: 2px; }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="date"],
+  input[type="number"], select, textarea {
+    border: 1.5px solid var(--border); border-radius: 7px; padding: 9px 12px;
+    font-size: 13.5px; color: var(--text); background: var(--input-bg);
+    transition: border-color 0.2s, box-shadow 0.2s; width: 100%; outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* Radio & Checkbox groups */
+  .radio-group, .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+  .radio-opt, .check-opt {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    background: var(--input-bg); border: 1.5px solid var(--border);
+    border-radius: 7px; padding: 7px 13px; font-size: 13px; transition: all 0.15s;
+    user-select: none;
+  }
+  .radio-opt:hover, .check-opt:hover { border-color: var(--accent); background: #eff6ff; }
+  .radio-opt input, .check-opt input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+  .radio-opt.selected, .check-opt.selected { border-color: var(--accent); background: #eff6ff; }
+
+  /* Inline yes/no */
+  .yn-group { display: flex; gap: 8px; }
+
+  /* Conditional panel */
+  .conditional {
+    background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 8px;
+    padding: 14px; margin-top: 10px; display: none;
+  }
+  .conditional.show { display: block; }
+  .conditional-label { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  /* Dependent table */
+  .dep-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .dep-table th { background: var(--primary); color: #fff; padding: 8px 10px; font-size: 12px; text-align: left; }
+  .dep-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  .dep-table input { border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; width: 100%; font-size: 12px; background: #fff; }
+  .add-row-btn {
+    margin-top: 10px; padding: 7px 16px; background: #eff6ff; border: 1.5px dashed var(--accent);
+    border-radius: 7px; color: var(--accent); cursor: pointer; font-size: 13px; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .add-row-btn:hover { background: #dbeafe; }
+
+  /* Doc checklist */
+  .doc-checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .doc-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border: 1.5px solid var(--border); border-radius: 7px; cursor: pointer;
+    background: var(--input-bg); transition: all 0.15s; font-size: 13px;
+  }
+  .doc-item:hover { border-color: var(--accent); background: #eff6ff; }
+  .doc-item input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+  /* Progress */
+  .progress-bar { background: #e2e8f0; border-radius: 99px; height: 5px; margin-top: 4px; overflow: hidden; }
+  .progress-fill { background: var(--accent); height: 100%; border-radius: 99px; transition: width 0.4s; }
+
+  /* Submit area */
+  .submit-area {
+    background: var(--card); border-radius: 12px; border: 1px solid var(--border);
+    padding: 24px; text-align: center; margin-top: 24px;
+  }
+  .submit-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; border: none; border-radius: 8px; padding: 13px 40px;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(30,58,95,0.25); letter-spacing: 0.3px;
+  }
+  .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(30,58,95,0.3); }
+  .export-btn {
+    background: #fff; color: var(--primary); border: 1.5px solid var(--primary);
+    border-radius: 8px; padding: 11px 28px; font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-left: 12px; transition: all 0.2s;
+  }
+  .export-btn:hover { background: var(--bg); }
+  .submit-note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px; background: #1a2533; color: #fff;
+    padding: 13px 20px; border-radius: 10px; font-size: 13px; z-index: 9999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); transform: translateY(80px); opacity: 0;
+    transition: all 0.3s; max-width: 320px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.info { border-left: 4px solid var(--accent); }
+
+  /* Tab content */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Section toggle */
+  .section-header { cursor: pointer; }
+  .section-toggle { margin-left: auto; font-size: 18px; opacity: 0.7; transition: transform 0.2s; }
+  .section-card.collapsed .section-toggle { transform: rotate(-90deg); }
+  .section-card.collapsed .section-body { display: none; }
+
+  /* Info banner */
+  .info-banner {
+    background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px;
+    padding: 13px 18px; margin-bottom: 20px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #1e40af;
+  }
+  .info-banner .icon { font-size: 18px; flex-shrink: 0; }
+
+  /* Signature box */
+  .sig-box {
+    border: 1.5px dashed var(--border); border-radius: 8px; height: 80px;
+    background: var(--input-bg); display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 12px; cursor: pointer;
+  }
+
+  @media (max-width: 640px) {
+    .form-grid, .form-grid.col-3 { grid-template-columns: 1fr; }
+    .doc-checklist { grid-template-columns: 1fr; }
+    header { padding: 14px 16px; }
+    .container { padding: 0 12px 40px; }
+    .tabs { padding: 0 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Alpha Data</div>
+    <div class="subtitle">Employee Data Collection System</div>
+  </div>
+  <span class="badge">🔒 Confidential HR Document</span>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('tab1', this)">
+    <span class="tab-indicator"></span>
+    EHS / Engineering Profile
+  </button>
+  <button class="tab-btn" onclick="switchTab('tab2', this)">
+    <span class="tab-indicator"></span>
+    Employee Hiring Form
+  </button>
+</div>
+
+<!-- ============================================================ TAB 1 ============================================================ -->
+<div id="tab1" class="tab-content active">
+  <div class="container">
+    <div class="info-banner">
+      <span class="icon">ℹ️</span>
+      <div>Fill in your EHS/Engineering profile details. Fields marked with <strong>*</strong> are required. All data is treated as confidential.</div>
+    </div>
+
+    <!-- Basic Info -->
+    <div class="section-card" id="sec-ehs-basic">
+      <div class="section-header" onclick="toggleSection('sec-ehs-basic')">
+        <span class="section-num">1</span> Basic Information
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Candidate Full Name <span class="required">*</span></label>
+            <input type="text" id="ehs_name" placeholder="As per Emirates ID / Passport" />
+          </div>
+          <div class="form-group">
+            <label>Gender <span class="required">*</span></label>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="ehs_gender" value="Male" onchange="styleRadio(this)"> Male</label>
+              <label class="radio-opt"><input type="radio" name="ehs_gender" value="Female" onchange="styleRadio(this)"> Female</label>
+              <label class="radio-opt"><input type="radio" name="ehs_gender" value="Other" onchange="styleRadio(this)"> Other</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Personal Email <span class="required">*</span></label>
+            <input type="email" id="ehs_email" placeholder="personal@example.com" />
+          </div>
+          <div class="form-group">
+            <label>Mobile Number <span class="required">*</span></label>
+            <input type="tel" id="ehs_mobile" placeholder="+971 XX XXX XXXX" />
+          </div>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input type="date" id="ehs_dob" />
+          </div>
+          <div class="form-group">
+            <label>Marital Status</label>
+            <select id="ehs_marital">
+              <option value="">Select…</option>
+              <option>Single</option>
+              <option>Married</option>
+              <option>Divorced</option>
+              <option>Widowed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nationality <span class="required">*</span></label>
+            <input type="text" id="ehs_nationality" placeholder="e.g. Indian" />
+          </div>
+          <div class="form-group">
+            <label>Emirate</label>
+            <select id="ehs_emirate">
+              <option value="">Select Emirate…</option>
+              <option>Abu Dhabi</option>
+              <option>Dubai</option>
+              <option>Sharjah</option>
+              <option>Ajman</option>
+              <option>Umm Al Quwain</option>
+              <option>Ras Al Khaimah</option>
+              <option>Fujairah</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Location / Work Site</label>
+            <input type="text" id="ehs_location" placeholder="e.g. ADNOC HQ, Dubai Metro" />
+          </div>
+          <div class="form-group">
+            <label>Bilingual</label>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="ehs_bilingual" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="ehs_bilingual" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role & Skills -->
+    <div class="section-card" id="sec-ehs-role">
+      <div class="section-header" onclick="toggleSection('sec-ehs-role')">
+        <span class="section-num">2</span> Role & Skills
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Role / Job Title <span class="required">*</span></label>
+            <input type="text" id="ehs_role" placeholder="e.g. EHS Engineer" />
+          </div>
+          <div class="form-group">
+            <label>Primary Skill</label>
+            <select id="ehs_skill">
+              <option value="">Select…</option>
+              <option>EHS Compliance</option>
+              <option>Fire Safety</option>
+              <option>Incident Investigation</option>
+              <option>HSE Auditing</option>
+              <option>Environmental Management</option>
+              <option>Risk Assessment</option>
+              <option>Safety Training</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Reporting To</label>
+            <input type="text" id="ehs_reporting" placeholder="Manager's name" />
+          </div>
+          <div class="form-group">
+            <label>Experience in EHS (years)</label>
+            <input type="number" id="ehs_exp" min="0" max="50" placeholder="e.g. 5" />
+          </div>
+          <div class="form-group">
+            <label>Total Work Experience (years)</label>
+            <input type="number" id="ehs_total_exp" min="0" max="50" placeholder="e.g. 10" />
+          </div>
+          <div class="form-group">
+            <label>Notice Period</label>
+            <select id="ehs_notice">
+              <option value="">Select…</option>
+              <option>Immediate</option>
+              <option>1 Week</option>
+              <option>2 Weeks</option>
+              <option>1 Month</option>
+              <option>2 Months</option>
+              <option>3 Months</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance -->
+    <div class="section-card" id="sec-ehs-perf">
+      <div class="section-header" onclick="toggleSection('sec-ehs-perf')">
+        <span class="section-num">3</span> Performance Metrics
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid col-3">
+          <div class="form-group">
+            <label>Avg CSAT Score</label>
+            <input type="number" id="ehs_csat" min="0" max="5" step="0.1" placeholder="e.g. 4.2" />
+          </div>
+          <div class="form-group">
+            <label>Avg FCR %</label>
+            <input type="number" id="ehs_fcr" min="0" max="100" placeholder="e.g. 87" />
+          </div>
+          <div class="form-group">
+            <label>Awards / Recognitions</label>
+            <input type="text" id="ehs_awards" placeholder="e.g. Safety Hero Q2 2024" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="section-card" id="sec-ehs-docs">
+      <div class="section-header" onclick="toggleSection('sec-ehs-docs')">
+        <span class="section-num">4</span> Documents & Validity
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Visa Expiry Date</label>
+            <input type="date" id="ehs_visa_exp" />
+          </div>
+          <div class="form-group">
+            <label>Passport Expiry Date</label>
+            <input type="date" id="ehs_passport_exp" />
+          </div>
+          <div class="form-group">
+            <label>Driving License</label>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="ehs_driving" value="Yes" onchange="conditionalShow('ehs_driving_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="ehs_driving" value="No" onchange="conditionalShow('ehs_driving_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="ehs_driving_det">
+              <div class="conditional-label">Driving License Details</div>
+              <div class="form-grid col-3">
+                <div class="form-group">
+                  <label>License No.</label>
+                  <input type="text" id="ehs_lic_no" placeholder="License number" />
+                </div>
+                <div class="form-group">
+                  <label>Issuing Country</label>
+                  <input type="text" id="ehs_lic_country" placeholder="e.g. UAE" />
+                </div>
+                <div class="form-group">
+                  <label>Expiry Date</label>
+                  <input type="date" id="ehs_lic_exp" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button class="submit-btn" onclick="handleSubmit('tab1')">Save EHS Profile</button>
+      <button class="export-btn" onclick="exportJSON('tab1')">⬇ Export JSON</button>
+      <div class="submit-note">All fields are encrypted at rest. Use the Employee Hiring Form tab to complete the full onboarding.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ TAB 2 ============================================================ -->
+<div id="tab2" class="tab-content">
+  <div class="container">
+    <div class="info-banner">
+      <span class="icon">📋</span>
+      <div>This is a <strong>Confidential HR Document</strong>. Complete all applicable fields and attach supporting documents. Information is used for payroll, benefits, immigration, insurance, access management, and compliance processing.</div>
+    </div>
+
+    <!-- Section 1: Employee Basic Info -->
+    <div class="section-card" id="sec1">
+      <div class="section-header" onclick="toggleSection('sec1')">
+        <span class="section-num">1</span> Employee Basic Information
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Employee Full Name <span class="required">*</span></label>
+            <input type="text" id="emp_name" placeholder="As per official documents" />
+          </div>
+          <div class="form-group">
+            <label>Employee ID</label>
+            <input type="text" id="emp_id" placeholder="Assigned by HR" />
+          </div>
+          <div class="form-group">
+            <label>Gender <span class="required">*</span></label>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="emp_gender" value="Male" onchange="styleRadio(this)"> Male</label>
+              <label class="radio-opt"><input type="radio" name="emp_gender" value="Female" onchange="styleRadio(this)"> Female</label>
+              <label class="radio-opt"><input type="radio" name="emp_gender" value="Other" onchange="styleRadio(this)"> Other</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Date of Birth <span class="required">*</span></label>
+            <input type="date" id="emp_dob" />
+          </div>
+          <div class="form-group">
+            <label>Nationality <span class="required">*</span></label>
+            <input type="text" id="emp_nationality" placeholder="e.g. Indian" />
+          </div>
+          <div class="form-group">
+            <label>Personal Email ID <span class="required">*</span></label>
+            <input type="email" id="emp_personal_email" placeholder="personal@example.com" />
+          </div>
+          <div class="form-group">
+            <label>Work Email ID</label>
+            <input type="email" id="emp_work_email" placeholder="name@alphadate.ae" />
+          </div>
+          <div class="form-group">
+            <label>Mobile Number <span class="required">*</span></label>
+            <input type="tel" id="emp_mobile" placeholder="+971 XX XXX XXXX" />
+          </div>
+          <div class="form-group">
+            <label>Alternate Contact Number</label>
+            <input type="tel" id="emp_alt_mobile" placeholder="+971 XX XXX XXXX" />
+          </div>
+          <div class="form-group full-width">
+            <label>Current Residential Address</label>
+            <textarea id="emp_address" placeholder="Flat / Villa No., Building, Street, Area, Emirate"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Emergency Contact Name</label>
+            <input type="text" id="emp_emg_name" placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label>Emergency Contact Number</label>
+            <input type="tel" id="emp_emg_phone" placeholder="+971 XX XXX XXXX" />
+          </div>
+          <div class="form-group">
+            <label>Relationship</label>
+            <select id="emp_emg_rel">
+              <option value="">Select…</option>
+              <option>Spouse</option>
+              <option>Parent</option>
+              <option>Sibling</option>
+              <option>Child</option>
+              <option>Friend</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Employment Info -->
+    <div class="section-card" id="sec2">
+      <div class="section-header" onclick="toggleSection('sec2')">
+        <span class="section-num">2</span> Employment Information
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Current Employer / Company <span class="required">*</span></label>
+            <input type="text" id="emp_company" placeholder="Company name" />
+          </div>
+          <div class="form-group">
+            <label>Employed Since (Date of Joining)</label>
+            <input type="date" id="emp_doj" />
+          </div>
+          <div class="form-group">
+            <label>Current Designation / Job Title</label>
+            <input type="text" id="emp_designation" placeholder="e.g. Senior EHS Engineer" />
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="emp_dept" placeholder="e.g. Operations" />
+          </div>
+          <div class="form-group">
+            <label>Function / Practice</label>
+            <input type="text" id="emp_function" placeholder="e.g. EHS, Facility Management" />
+          </div>
+          <div class="form-group">
+            <label>Reporting Manager</label>
+            <input type="text" id="emp_mgr" placeholder="Manager's full name" />
+          </div>
+          <div class="form-group">
+            <label>Secondary Manager / Project Manager</label>
+            <input type="text" id="emp_sec_mgr" placeholder="Name (if applicable)" />
+          </div>
+          <div class="form-group">
+            <label>Work Location</label>
+            <input type="text" id="emp_work_loc" placeholder="e.g. Abu Dhabi" />
+          </div>
+          <div class="form-group">
+            <label>Base Country</label>
+            <input type="text" id="emp_base_country" placeholder="e.g. UAE" />
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" id="emp_city" placeholder="e.g. Dubai" />
+          </div>
+          <div class="form-group">
+            <label>Office / Site / Client Location</label>
+            <input type="text" id="emp_site" placeholder="e.g. ADNOC Ruwais" />
+          </div>
+          <div class="form-group full-width">
+            <label>Employment Type <span class="required">*</span></label>
+            <div class="checkbox-group">
+              <label class="check-opt"><input type="radio" name="emp_type" value="Full-time" onchange="styleRadio(this)"> Full-time</label>
+              <label class="check-opt"><input type="radio" name="emp_type" value="Part-time" onchange="styleRadio(this)"> Part-time</label>
+              <label class="check-opt"><input type="radio" name="emp_type" value="Fixed-term" onchange="styleRadio(this)"> Fixed-term</label>
+              <label class="check-opt"><input type="radio" name="emp_type" value="Contract" onchange="styleRadio(this)"> Contract</label>
+              <label class="check-opt"><input type="radio" name="emp_type" value="Consultant" onchange="styleRadio(this)"> Consultant</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notice Period</label>
+            <select id="emp_notice">
+              <option value="">Select…</option>
+              <option>Immediate</option>
+              <option>1 Week</option>
+              <option>2 Weeks</option>
+              <option>1 Month</option>
+              <option>2 Months</option>
+              <option>3 Months</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Contract Details -->
+    <div class="section-card" id="sec3">
+      <div class="section-header" onclick="toggleSection('sec3')">
+        <span class="section-num">3</span> Current Contract / Assignment Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Current Contract Type</label>
+            <select id="contract_type">
+              <option value="">Select…</option>
+              <option>Permanent</option>
+              <option>Fixed-term</option>
+              <option>Project-based</option>
+              <option>Secondment</option>
+              <option>Outsourced</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Current Client / Customer Name</label>
+            <input type="text" id="contract_client" placeholder="Client/customer name" />
+          </div>
+          <div class="form-group">
+            <label>Current Project Name</label>
+            <input type="text" id="contract_project" placeholder="Project name" />
+          </div>
+          <div class="form-group">
+            <label>Billing Role / Band / Grade</label>
+            <input type="text" id="contract_band" placeholder="e.g. L3, Band B" />
+          </div>
+          <div class="form-group">
+            <label>Contract Start Date</label>
+            <input type="date" id="contract_start" />
+          </div>
+          <div class="form-group">
+            <label>Contract End Date</label>
+            <input type="date" id="contract_end" />
+          </div>
+          <div class="form-group full-width">
+            <label>Any Non-Compete / Non-Solicit / NDA Obligations?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="nda" value="Yes" onchange="conditionalShow('nda_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="nda" value="No" onchange="conditionalShow('nda_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="nda_det">
+              <div class="conditional-label">NDA / Obligation Details</div>
+              <textarea id="nda_details" placeholder="Specify the obligations, duration, and parties involved…"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: Compensation -->
+    <div class="section-card" id="sec4">
+      <div class="section-header" onclick="toggleSection('sec4')">
+        <span class="section-num">4</span> Compensation Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Currency</label>
+            <select id="comp_currency">
+              <option value="">Select…</option>
+              <option>AED</option>
+              <option>USD</option>
+              <option>INR</option>
+              <option>GBP</option>
+              <option>EUR</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Current Gross Salary</label>
+            <input type="number" id="comp_curr_gross" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Current Net Salary</label>
+            <input type="number" id="comp_curr_net" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Proposed Gross Salary</label>
+            <input type="number" id="comp_prop_gross" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Proposed Net Salary</label>
+            <input type="number" id="comp_prop_net" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Basic Salary</label>
+            <input type="number" id="comp_basic" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Housing Allowance</label>
+            <input type="number" id="comp_housing" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Transport Allowance</label>
+            <input type="number" id="comp_transport" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Mobile / Communication Allowance</label>
+            <input type="number" id="comp_mobile" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Special / Other Allowance</label>
+            <input type="number" id="comp_special" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Shift Allowance</label>
+            <input type="number" id="comp_shift" placeholder="Amount" />
+          </div>
+          <div class="form-group">
+            <label>Overtime Eligibility</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="ot_eligible" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="ot_eligible" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Bonus / Variable Pay</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="bonus" value="Yes" onchange="conditionalShow('bonus_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="bonus" value="No" onchange="conditionalShow('bonus_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="bonus_det">
+              <div class="conditional-label">Bonus Details</div>
+              <input type="text" id="bonus_details" placeholder="Percentage, amount, KPI-linked details…" />
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Any Salary Protection / Buyout Commitment</label>
+            <input type="text" id="comp_buyout" placeholder="Details if any" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: Visa / Immigration -->
+    <div class="section-card" id="sec5">
+      <div class="section-header" onclick="toggleSection('sec5')">
+        <span class="section-num">5</span> Visa / Immigration Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Self – Visa Sponsorship Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="visa_req" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="visa_req" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Current Visa Type</label>
+            <select id="visa_type">
+              <option value="">Select…</option>
+              <option>Employment Visa</option>
+              <option>Residence Visa</option>
+              <option>Visit / Tourist Visa</option>
+              <option>Freelance Permit</option>
+              <option>Golden Visa</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Visa Number</label>
+            <input type="text" id="visa_number" placeholder="Visa / UID number" />
+          </div>
+          <div class="form-group">
+            <label>Visa Expiry Date</label>
+            <input type="date" id="visa_expiry" />
+          </div>
+          <div class="form-group">
+            <label>Work Permit / Labour Card No.</label>
+            <input type="text" id="visa_labour" placeholder="Labour card number" />
+          </div>
+          <div class="form-group">
+            <label>Emirates ID No.</label>
+            <input type="text" id="visa_eid" placeholder="784-XXXX-XXXXXXX-X" />
+          </div>
+          <div class="form-group">
+            <label>Sponsoring Entity</label>
+            <input type="text" id="visa_sponsor" placeholder="Company / authority name" />
+          </div>
+          <div class="form-group full-width">
+            <label>Family Visa Sponsorship Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="family_visa" value="Yes" onchange="conditionalShow('family_visa_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="family_visa" value="No" onchange="conditionalShow('family_visa_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="family_visa_det">
+              <div class="conditional-label">Family Visa Details</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>No. of Dependents Requiring Sponsorship</label>
+                  <input type="number" id="family_dep_count" min="0" placeholder="e.g. 2" />
+                </div>
+                <div class="form-group">
+                  <label>Remarks</label>
+                  <input type="text" id="family_visa_remarks" placeholder="Any additional details" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: Medical Insurance -->
+    <div class="section-card" id="sec6">
+      <div class="section-header" onclick="toggleSection('sec6')">
+        <span class="section-num">6</span> Medical Insurance Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Self – Medical Insurance Coverage Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="med_self" value="Yes" onchange="conditionalShow('med_self_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="med_self" value="No" onchange="conditionalShow('med_self_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="med_self_det">
+              <div class="conditional-label">Current Insurance Details</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Insurance Provider</label>
+                  <input type="text" id="med_provider" placeholder="e.g. Daman, Oman Insurance" />
+                </div>
+                <div class="form-group">
+                  <label>Plan Name</label>
+                  <input type="text" id="med_plan" placeholder="Plan / policy name" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Chronic / Pre-existing Condition Declaration</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="med_chronic" value="Yes" onchange="conditionalShow('med_chronic_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="med_chronic" value="No" onchange="conditionalShow('med_chronic_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="med_chronic_det">
+              <div class="conditional-label">Condition Details (treated confidentially)</div>
+              <textarea id="med_chronic_details" placeholder="Briefly describe any pre-existing conditions…"></textarea>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Family Medical Coverage Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="med_family" value="Yes" onchange="conditionalShow('med_family_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="med_family" value="No" onchange="conditionalShow('med_family_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="med_family_det">
+              <div class="conditional-label">Family Coverage Details</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Dependents to Cover</label>
+                  <div class="checkbox-group">
+                    <label class="check-opt"><input type="checkbox" name="med_dep" value="Spouse" onchange="styleCheck(this)"> Spouse</label>
+                    <label class="check-opt"><input type="checkbox" name="med_dep" value="Children" onchange="styleCheck(this)"> Children</label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>No. of Children</label>
+                  <input type="number" id="med_children" min="0" placeholder="e.g. 2" />
+                </div>
+                <div class="form-group full-width">
+                  <label>Family Coverage Remarks</label>
+                  <input type="text" id="med_family_remarks" placeholder="Any additional details" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 7: Air Ticket -->
+    <div class="section-card" id="sec7">
+      <div class="section-header" onclick="toggleSection('sec7')">
+        <span class="section-num">7</span> Air Ticket / Travel Benefits
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Self Air Ticket Entitlement?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="ticket_self" value="Yes" onchange="conditionalShow('ticket_self_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="ticket_self" value="No" onchange="conditionalShow('ticket_self_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="ticket_self_det">
+              <div class="conditional-label">Self Travel Details</div>
+              <div class="form-grid col-3">
+                <div class="form-group">
+                  <label>Frequency</label>
+                  <div class="checkbox-group">
+                    <label class="check-opt"><input type="radio" name="ticket_self_freq" value="Annual"> Annual</label>
+                    <label class="check-opt"><input type="radio" name="ticket_self_freq" value="Biennial"> Biennial</label>
+                    <label class="check-opt"><input type="radio" name="ticket_self_freq" value="One-time"> One-time</label>
+                    <label class="check-opt"><input type="radio" name="ticket_self_freq" value="As per policy"> Policy</label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Route / Sector</label>
+                  <input type="text" id="ticket_self_route" placeholder="e.g. Dubai – Mumbai" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Family Air Ticket Entitlement?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="ticket_family" value="Yes" onchange="conditionalShow('ticket_family_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="ticket_family" value="No" onchange="conditionalShow('ticket_family_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="ticket_family_det">
+              <div class="conditional-label">Family Travel Details</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Eligible Dependents</label>
+                  <div class="checkbox-group">
+                    <label class="check-opt"><input type="checkbox" name="ticket_dep" value="Spouse" onchange="styleCheck(this)"> Spouse</label>
+                    <label class="check-opt"><input type="checkbox" name="ticket_dep" value="Children" onchange="styleCheck(this)"> Children</label>
+                    <label class="check-opt"><input type="checkbox" name="ticket_dep" value="Other" onchange="styleCheck(this)"> Other</label>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Family Route / Sector</label>
+                  <input type="text" id="ticket_family_route" placeholder="e.g. Dubai – Chennai" />
+                </div>
+                <div class="form-group">
+                  <label>Frequency</label>
+                  <input type="text" id="ticket_family_freq" placeholder="e.g. Annual" />
+                </div>
+                <div class="form-group">
+                  <label>Travel Remarks</label>
+                  <input type="text" id="ticket_remarks" placeholder="Any additional info" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 8: Family Details -->
+    <div class="section-card" id="sec8">
+      <div class="section-header" onclick="toggleSection('sec8')">
+        <span class="section-num">8</span> Family / Dependent Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">List all dependents. Click "Add Dependent" to add rows.</p>
+        <div style="overflow-x:auto;">
+          <table class="dep-table">
+            <thead>
+              <tr>
+                <th>Full Name</th>
+                <th>Relationship</th>
+                <th>Date of Birth</th>
+                <th>Nationality</th>
+                <th>Passport No.</th>
+                <th>Emirates ID No.</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="dep_tbody">
+              <tr>
+                <td><input type="text" placeholder="Name" /></td>
+                <td>
+                  <select style="border:1px solid var(--border);border-radius:5px;padding:6px 8px;width:100%;font-size:12px;">
+                    <option value="">Select</option>
+                    <option>Spouse</option>
+                    <option>Son</option>
+                    <option>Daughter</option>
+                    <option>Parent</option>
+                    <option>Other</option>
+                  </select>
+                </td>
+                <td><input type="date" /></td>
+                <td><input type="text" placeholder="Nationality" /></td>
+                <td><input type="text" placeholder="Passport No." /></td>
+                <td><input type="text" placeholder="EID / Permit No." /></td>
+                <td><button onclick="removeRow(this)" style="border:none;background:#fee2e2;color:#dc2626;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;">✕</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button class="add-row-btn" onclick="addDepRow()">+ Add Dependent</button>
+      </div>
+    </div>
+
+    <!-- Section 9: Leave -->
+    <div class="section-card" id="sec9">
+      <div class="section-header" onclick="toggleSection('sec9')">
+        <span class="section-num">9</span> Leave Balance and Time-Off
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid col-3">
+          <div class="form-group">
+            <label>Annual Leave Balance (days)</label>
+            <input type="number" id="leave_annual" min="0" placeholder="e.g. 18" />
+          </div>
+          <div class="form-group">
+            <label>Sick Leave Balance (days)</label>
+            <input type="number" id="leave_sick" min="0" placeholder="e.g. 5" />
+          </div>
+          <div class="form-group">
+            <label>Comp-off Balance (days)</label>
+            <input type="number" id="leave_compoff" min="0" placeholder="e.g. 2" />
+          </div>
+          <div class="form-group">
+            <label>Other Leave Balance</label>
+            <input type="text" id="leave_other" placeholder="Type and days" />
+          </div>
+          <div class="form-group">
+            <label>Leave Encashment</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="leave_encash" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="leave_encash" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Leave Transfer</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="leave_transfer" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="leave_transfer" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px;">
+          <div class="form-group full-width">
+            <label>Approved Future Leave</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="future_leave" value="Yes" onchange="conditionalShow('future_leave_det', this, 'Yes')"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="future_leave" value="No" onchange="conditionalShow('future_leave_det', this, 'Yes')"> No</label>
+            </div>
+            <div class="conditional" id="future_leave_det">
+              <div class="conditional-label">Future Leave Details</div>
+              <input type="text" id="future_leave_details" placeholder="Dates and type of approved leave…" />
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Maternity / Paternity / Special Leave Status</label>
+            <input type="text" id="leave_special" placeholder="Details if applicable" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 10: Payroll & Finance -->
+    <div class="section-card" id="sec10">
+      <div class="section-header" onclick="toggleSection('sec10')">
+        <span class="section-num">10</span> Payroll, Finance, and Statutory Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Bank Name</label>
+            <input type="text" id="bank_name" placeholder="e.g. Emirates NBD" />
+          </div>
+          <div class="form-group">
+            <label>Bank Account Number / IBAN</label>
+            <input type="text" id="bank_iban" placeholder="AE XX XXXX XXXX XXXX XXXX XXX" />
+          </div>
+          <div class="form-group full-width">
+            <label>Pending Advances / Loans / Recoveries</label>
+            <input type="text" id="bank_advances" placeholder="None, or specify amount and type" />
+          </div>
+          <div class="form-group">
+            <label>Salary Transfer Letter Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="sal_transfer" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="sal_transfer" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 11: Documents Required -->
+    <div class="section-card" id="sec11">
+      <div class="section-header" onclick="toggleSection('sec11')">
+        <span class="section-num">11</span> Documents Required
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;font-weight:500;">Employee Documents — check all that have been submitted:</p>
+        <div class="doc-checklist" id="emp_docs">
+          <label class="doc-item"><input type="checkbox" name="doc" value="Passport copy" onchange="styleCheck(this)"> Passport copy</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Visa copy" onchange="styleCheck(this)"> Visa copy</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Emirates ID / Residence Permit" onchange="styleCheck(this)"> Emirates ID / Residence Permit</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Work permit / labour card" onchange="styleCheck(this)"> Work permit / labour card</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Updated Resume / CV" onchange="styleCheck(this)"> Updated Resume / CV</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Educational certificates" onchange="styleCheck(this)"> Educational certificates</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Current employment contract" onchange="styleCheck(this)"> Current employment contract</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Salary proof / payslips" onchange="styleCheck(this)"> Salary proof / payslips</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Bank details" onchange="styleCheck(this)"> Bank details</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Recent photograph" onchange="styleCheck(this)"> Recent photograph</label>
+          <label class="doc-item"><input type="checkbox" name="doc" value="Signed consent / declaration" onchange="styleCheck(this)"> Signed consent / declaration</label>
+        </div>
+        <div class="form-group" style="margin-top:14px;">
+          <label>Other Employee Documents</label>
+          <input type="text" id="doc_other_emp" placeholder="List any other documents provided" />
+        </div>
+
+        <p style="font-size:13px;color:var(--muted);margin:20px 0 14px;font-weight:500;">Dependent / Family Documents — check all that have been submitted:</p>
+        <div class="doc-checklist">
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Spouse passport copy" onchange="styleCheck(this)"> Spouse passport copy</label>
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Children passport copies" onchange="styleCheck(this)"> Children passport copies</label>
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Marriage certificate" onchange="styleCheck(this)"> Marriage certificate</label>
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Birth certificates of children" onchange="styleCheck(this)"> Birth certificates of children</label>
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Existing family visa copies" onchange="styleCheck(this)"> Existing family visa copies</label>
+          <label class="doc-item"><input type="checkbox" name="fam_doc" value="Insurance cards / policy details" onchange="styleCheck(this)"> Insurance cards / policy details</label>
+        </div>
+        <div class="form-group" style="margin-top:14px;">
+          <label>Other Family Documents</label>
+          <input type="text" id="doc_other_fam" placeholder="List any other documents provided" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 12: Compliance / HR Review -->
+    <div class="section-card" id="sec12">
+      <div class="section-header" onclick="toggleSection('sec12')">
+        <span class="section-num">12</span> Compliance / Legal / HR Review
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Background Verification Completed?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="bgv" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="bgv" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Police Verification Completed?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="police_ver" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="police_ver" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Conflict of Interest Declaration Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="coi" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="coi" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>NDA / Confidentiality Agreement Signed?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="nda_signed" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="nda_signed" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Data Privacy Consent Obtained?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="data_consent" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="data_consent" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Client Approval Required?</label>
+            <div class="yn-group">
+              <label class="radio-opt"><input type="radio" name="client_appr" value="Yes" onchange="styleRadio(this)"> Yes</label>
+              <label class="radio-opt"><input type="radio" name="client_appr" value="No" onchange="styleRadio(this)"> No</label>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label>Compliance Remarks</label>
+            <textarea id="compliance_remarks" placeholder="Any additional compliance notes…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 13: Employee Declaration -->
+    <div class="section-card" id="sec13">
+      <div class="section-header" onclick="toggleSection('sec13')">
+        <span class="section-num">13</span> Employee Declaration
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:14px 18px;margin-bottom:18px;font-size:13px;color:#166534;line-height:1.6;">
+          I confirm that the information provided above is true and complete to the best of my knowledge. I understand that this information will be used for employment rebadging, payroll, benefits, immigration, insurance, access management, and compliance processing.
+        </div>
+        <div class="form-grid col-3">
+          <div class="form-group">
+            <label>Employee Name <span class="required">*</span></label>
+            <input type="text" id="decl_name" placeholder="Full name" />
+          </div>
+          <div class="form-group">
+            <label>Date <span class="required">*</span></label>
+            <input type="date" id="decl_date" />
+          </div>
+          <div class="form-group">
+            <label>Signature (type name to sign)</label>
+            <input type="text" id="decl_sig" placeholder="Type your full name" />
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:14px;">
+          <label>
+            <input type="checkbox" id="decl_agree" style="accent-color:var(--accent);width:15px;height:15px;margin-right:6px;" />
+            I have read and agree to the declaration above. <span class="required">*</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="submit-area">
+      <button class="submit-btn" onclick="handleSubmit('tab2')">Submit Hiring Form</button>
+      <button class="export-btn" onclick="exportJSON('tab2')">⬇ Export JSON</button>
+      <div class="submit-note">
+        🔒 This form contains sensitive personal data. Ensure you are submitting on a secure, company-approved network.<br/>
+        Data will be processed in accordance with Alpha Data's Privacy Policy and applicable UAE data protection laws.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======== TAB SWITCHING ========
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ======== SECTION TOGGLE ========
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ======== CONDITIONAL SHOW ========
+function conditionalShow(panelId, radio, triggerValue) {
+  const panel = document.getElementById(panelId);
+  if (panel) {
+    panel.classList.toggle('show', radio.value === triggerValue);
+  }
+  styleRadio(radio);
+}
+
+// ======== STYLE HELPERS ========
+function styleRadio(el) {
+  const name = el.name;
+  document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+    r.closest('.radio-opt, .check-opt').classList.toggle('selected', r.checked);
+  });
+}
+function styleCheck(el) {
+  el.closest('.check-opt, .doc-item').classList.toggle('selected', el.checked);
+}
+
+// ======== DEPENDENT TABLE ========
+function addDepRow() {
+  const tbody = document.getElementById('dep_tbody');
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><input type="text" placeholder="Name" /></td>
+    <td>
+      <select style="border:1px solid var(--border);border-radius:5px;padding:6px 8px;width:100%;font-size:12px;">
+        <option value="">Select</option>
+        <option>Spouse</option><option>Son</option><option>Daughter</option>
+        <option>Parent</option><option>Other</option>
+      </select>
+    </td>
+    <td><input type="date" /></td>
+    <td><input type="text" placeholder="Nationality" /></td>
+    <td><input type="text" placeholder="Passport No." /></td>
+    <td><input type="text" placeholder="EID / Permit No." /></td>
+    <td><button onclick="removeRow(this)" style="border:none;background:#fee2e2;color:#dc2626;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;">✕</button></td>
+  `;
+  tbody.appendChild(row);
+}
+function removeRow(btn) {
+  const row = btn.closest('tr');
+  if (document.querySelectorAll('#dep_tbody tr').length > 1) row.remove();
+  else showToast('At least one row is required.', 'info');
+}
+
+// ======== COLLECT FORM DATA ========
+function collectFormData(tabId) {
+  const container = document.getElementById(tabId);
+  const data = {};
+
+  // Text / email / tel / number / date inputs
+  container.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+    data[el.id] = el.value;
+  });
+
+  // Radio buttons (named)
+  const radios = {};
+  container.querySelectorAll('input[type="radio"]:checked').forEach(r => {
+    radios[r.name] = r.value;
+  });
+  Object.assign(data, radios);
+
+  // Checkboxes (grouped by name)
+  const checks = {};
+  container.querySelectorAll('input[type="checkbox"][name]').forEach(c => {
+    if (!checks[c.name]) checks[c.name] = [];
+    if (c.checked) checks[c.name].push(c.value);
+  });
+  Object.assign(data, checks);
+
+  // Dependent table
+  if (tabId === 'tab2') {
+    const deps = [];
+    document.querySelectorAll('#dep_tbody tr').forEach(row => {
+      const cells = row.querySelectorAll('td');
+      if (cells.length >= 6) {
+        const inp = cells[0].querySelector('input');
+        const sel = cells[1].querySelector('select');
+        if (inp && inp.value.trim()) {
+          deps.push({
+            name: cells[0].querySelector('input')?.value || '',
+            relationship: cells[1].querySelector('select')?.value || '',
+            dob: cells[2].querySelector('input')?.value || '',
+            nationality: cells[3].querySelector('input')?.value || '',
+            passport: cells[4].querySelector('input')?.value || '',
+            eid: cells[5].querySelector('input')?.value || ''
+          });
+        }
+      }
+    });
+    data['dependents'] = deps;
+  }
+
+  data['_submittedAt'] = new Date().toISOString();
+  data['_formTab'] = tabId;
+  return data;
+}
+
+// ======== MAP FORM DATA → SUPABASE COLUMNS (snake_case) ========
+function mapToSupabase(tabId, data) {
+  if (tabId === 'tab1') {
+    return {
+      candidate_name:       data.ehs_name         || null,
+      gender:               data.ehs_gender        || null,
+      personal_email:       data.ehs_email         || null,
+      mobile:               data.ehs_mobile        || null,
+      date_of_birth:        data.ehs_dob           || null,
+      marital_status:       data.ehs_marital       || null,
+      nationality:          data.ehs_nationality   || null,
+      emirate:              data.ehs_emirate       || null,
+      location:             data.ehs_location      || null,
+      role:                 data.ehs_role          || null,
+      skill:                data.ehs_skill         || null,
+      reporting_to:         data.ehs_reporting     || null,
+      exp_in_ehs_yrs:       data.ehs_exp           ? Number(data.ehs_exp)       : null,
+      total_experience_yrs: data.ehs_total_exp     ? Number(data.ehs_total_exp) : null,
+      avg_csat_score:       data.ehs_csat          ? Number(data.ehs_csat)      : null,
+      avg_fcr_pct:          data.ehs_fcr           ? Number(data.ehs_fcr)       : null,
+      awards:               data.ehs_awards        || null,
+      bilingual:            data.ehs_bilingual     || null,
+      visa_expiry:          data.ehs_visa_exp      || null,
+      passport_expiry:      data.ehs_passport_exp  || null,
+      driving_license:      data.ehs_driving       || null,
+      license_no:           data.ehs_lic_no        || null,
+      license_country:      data.ehs_lic_country   || null,
+      license_expiry:       data.ehs_lic_exp       || null,
+      notice_period:        data.ehs_notice        || null,
+      submitted_at:         new Date().toISOString(),
+    };
+  } else {
+    return {
+      // Section 1
+      employee_full_name:     data.emp_name           || null,
+      employee_id:            data.emp_id             || null,
+      gender:                 data.emp_gender         || null,
+      date_of_birth:          data.emp_dob            || null,
+      nationality:            data.emp_nationality    || null,
+      personal_email:         data.emp_personal_email || null,
+      work_email:             data.emp_work_email     || null,
+      mobile:                 data.emp_mobile         || null,
+      alternate_mobile:       data.emp_alt_mobile     || null,
+      residential_address:    data.emp_address        || null,
+      emergency_contact:      data.emp_emg_name       || null,
+      emergency_phone:        data.emp_emg_phone      || null,
+      emergency_relationship: data.emp_emg_rel        || null,
+      // Section 2
+      company:                data.emp_company        || null,
+      date_of_joining:        data.emp_doj            || null,
+      designation:            data.emp_designation    || null,
+      department:             data.emp_dept           || null,
+      function_practice:      data.emp_function       || null,
+      reporting_manager:      data.emp_mgr            || null,
+      secondary_manager:      data.emp_sec_mgr        || null,
+      work_location:          data.emp_work_loc       || null,
+      base_country:           data.emp_base_country   || null,
+      city:                   data.emp_city           || null,
+      office_site:            data.emp_site           || null,
+      employment_type:        data.emp_type           || null,
+      notice_period:          data.emp_notice         || null,
+      // Section 3
+      contract_type:          data.contract_type      || null,
+      client_name:            data.contract_client    || null,
+      project_name:           data.contract_project   || null,
+      billing_band_grade:     data.contract_band      || null,
+      contract_start:         data.contract_start     || null,
+      contract_end:           data.contract_end       || null,
+      nda_obligations:        data.nda                || null,
+      nda_details:            data.nda_details        || null,
+      // Section 4
+      currency:               data.comp_currency      || null,
+      current_gross_salary:   data.comp_curr_gross    ? Number(data.comp_curr_gross)  : null,
+      current_net_salary:     data.comp_curr_net      ? Number(data.comp_curr_net)    : null,
+      proposed_gross_salary:  data.comp_prop_gross    ? Number(data.comp_prop_gross)  : null,
+      proposed_net_salary:    data.comp_prop_net      ? Number(data.comp_prop_net)    : null,
+      basic_salary:           data.comp_basic         ? Number(data.comp_basic)       : null,
+      housing_allowance:      data.comp_housing       ? Number(data.comp_housing)     : null,
+      transport_allowance:    data.comp_transport     ? Number(data.comp_transport)   : null,
+      mobile_allowance:       data.comp_mobile        ? Number(data.comp_mobile)      : null,
+      special_allowance:      data.comp_special       ? Number(data.comp_special)     : null,
+      shift_allowance:        data.comp_shift         ? Number(data.comp_shift)       : null,
+      overtime_eligible:      data.ot_eligible        || null,
+      bonus_variable_pay:     data.bonus              || null,
+      bonus_details:          data.bonus_details      || null,
+      salary_buyout:          data.comp_buyout        || null,
+      // Section 5
+      visa_sponsorship:       data.visa_req           || null,
+      visa_type:              data.visa_type          || null,
+      visa_number:            data.visa_number        || null,
+      visa_expiry:            data.visa_expiry        || null,
+      labour_card:            data.visa_labour        || null,
+      emirates_id:            data.visa_eid           || null,
+      sponsoring_entity:      data.visa_sponsor       || null,
+      family_visa_required:   data.family_visa        || null,
+      family_dep_count:       data.family_dep_count   ? Number(data.family_dep_count) : null,
+      family_visa_remarks:    data.family_visa_remarks || null,
+      // Section 6
+      medical_insurance:      data.med_self           || null,
+      insurance_provider:     data.med_provider       || null,
+      insurance_plan:         data.med_plan           || null,
+      preexisting_condition:  data.med_chronic        || null,
+      condition_details:      data.med_chronic_details || null,
+      family_medical:         data.med_family         || null,
+      medical_dependents:     Array.isArray(data.med_dep) ? data.med_dep.join(', ') : null,
+      children_count_med:     data.med_children       ? Number(data.med_children)    : null,
+      // Section 7
+      self_ticket:            data.ticket_self        || null,
+      self_ticket_freq:       data.ticket_self_freq   || null,
+      self_route:             data.ticket_self_route  || null,
+      family_ticket:          data.ticket_family      || null,
+      family_ticket_deps:     Array.isArray(data.ticket_dep) ? data.ticket_dep.join(', ') : null,
+      family_route:           data.ticket_family_route || null,
+      family_ticket_freq:     data.ticket_family_freq  || null,
+      // Section 8 – JSONB column
+      dependents:             data.dependents || [],
+      // Section 9
+      annual_leave_days:      data.leave_annual  ? Number(data.leave_annual)  : null,
+      sick_leave_days:        data.leave_sick    ? Number(data.leave_sick)    : null,
+      compoff_days:           data.leave_compoff ? Number(data.leave_compoff) : null,
+      other_leave:            data.leave_other        || null,
+      leave_encashment:       data.leave_encash       || null,
+      leave_transfer:         data.leave_transfer     || null,
+      future_leave:           data.future_leave       || null,
+      future_leave_details:   data.future_leave_details || null,
+      special_leave:          data.leave_special      || null,
+      // Section 10
+      bank_name:              data.bank_name          || null,
+      iban:                   data.bank_iban          || null,
+      advances_loans:         data.bank_advances      || null,
+      salary_transfer_letter: data.sal_transfer       || null,
+      // Section 11
+      employee_docs:          Array.isArray(data.doc)     ? data.doc.join(', ')     : null,
+      other_emp_docs:         data.doc_other_emp      || null,
+      family_docs:            Array.isArray(data.fam_doc) ? data.fam_doc.join(', ') : null,
+      other_fam_docs:         data.doc_other_fam      || null,
+      // Section 12
+      bgv_completed:          data.bgv                || null,
+      police_verification:    data.police_ver         || null,
+      coi_declaration:        data.coi                || null,
+      nda_signed:             data.nda_signed         || null,
+      data_privacy_consent:   data.data_consent       || null,
+      client_approval:        data.client_appr        || null,
+      compliance_remarks:     data.compliance_remarks || null,
+      // Section 13
+      declarant_name:         data.decl_name          || null,
+      declaration_date:       data.decl_date          || null,
+      declaration_agreed:     document.getElementById('decl_agree')?.checked ? 'Yes' : 'No',
+      submitted_at:           new Date().toISOString(),
+    };
+  }
+}
+
+// ======== SUBMIT → SUPABASE ========
+async function handleSubmit(tabId) {
+  if (tabId === 'tab2') {
+    const agree = document.getElementById('decl_agree');
+    if (!agree.checked) {
+      showToast('Please check the Employee Declaration box before submitting.', 'info');
+      return;
+    }
+  }
+  if (SUPABASE_URL.includes('YOUR_PROJECT_ID')) {
+    showToast('⚠️ Supabase not configured yet. Export JSON to save your data locally.', 'info');
+    return;
+  }
+
+  const btn = document.querySelector(`#${tabId} .submit-btn`);
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  const data   = collectFormData(tabId);
+  const row    = mapToSupabase(tabId, data);
+  const table  = tabId === 'tab1' ? 'ehs_profiles' : 'hiring_forms';
+
+  try {
+    const { error } = await db().from(table).insert([row]);
+    if (error) throw new Error(error.message);
+    showToast('✅ Saved to Supabase successfully!', 'success');
+    btn.textContent = '✓ Submitted';
+  } catch (e) {
+    showToast(`❌ Submission failed: ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = tabId === 'tab1' ? 'Save EHS Profile' : 'Submit Hiring Form';
+  }
+}
+
+// ======== EXPORT JSON ========
+function exportJSON(tabId) {
+  const data = collectFormData(tabId);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `employee-data-${tabId}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 JSON file downloaded.', 'info');
+}
+
+// ======== TOAST ========
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ======== SET TODAY AS DEFAULT DECLARATION DATE ========
+window.addEventListener('DOMContentLoaded', () => {
+  const d = document.getElementById('decl_date');
+  if (d) d.value = new Date().toISOString().slice(0, 10);
+});
+</script>
+</body>
+</html>
