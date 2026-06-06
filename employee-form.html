@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Employee Data Collection – Alpha Data</title>
+<title>EHS Employee Data Collection System</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ============================================================
@@ -213,10 +213,10 @@ function db() {
 
 <header>
   <div>
-    <div class="logo">Alpha Data</div>
-    <div class="subtitle">Employee Data Collection System</div>
+    <div class="logo">EHS Employee Data Collection System</div>
+    <div class="subtitle">Screening Form — All data is treated as strictly confidential</div>
   </div>
-  <span class="badge">🔒 Confidential HR Document</span>
+  <span class="badge">🔒 Confidential</span>
 </header>
 
 <div class="tabs">
@@ -255,7 +255,6 @@ function db() {
             <div class="radio-group">
               <label class="radio-opt"><input type="radio" name="ehs_gender" value="Male" onchange="styleRadio(this)"> Male</label>
               <label class="radio-opt"><input type="radio" name="ehs_gender" value="Female" onchange="styleRadio(this)"> Female</label>
-              <label class="radio-opt"><input type="radio" name="ehs_gender" value="Other" onchange="styleRadio(this)"> Other</label>
             </div>
           </div>
           <div class="form-group">
@@ -299,14 +298,11 @@ function db() {
           </div>
           <div class="form-group">
             <label>Location / Work Site</label>
-            <input type="text" id="ehs_location" placeholder="e.g. ADNOC HQ, Dubai Metro" />
+            <input type="text" id="ehs_location" placeholder="e.g. EHS/Dubai" />
           </div>
           <div class="form-group">
-            <label>Bilingual</label>
-            <div class="radio-group">
-              <label class="radio-opt"><input type="radio" name="ehs_bilingual" value="Yes" onchange="styleRadio(this)"> Yes</label>
-              <label class="radio-opt"><input type="radio" name="ehs_bilingual" value="No" onchange="styleRadio(this)"> No</label>
-            </div>
+            <label>Languages Known</label>
+            <input type="text" id="ehs_languages" placeholder="e.g. English, Arabic, Hindi" />
           </div>
         </div>
       </div>
@@ -321,22 +317,41 @@ function db() {
       <div class="section-body">
         <div class="form-grid">
           <div class="form-group">
-            <label>Role / Job Title <span class="required">*</span></label>
-            <input type="text" id="ehs_role" placeholder="e.g. EHS Engineer" />
+            <label>Role <span class="required">*</span></label>
+            <select id="ehs_role" onchange="conditionalShow('ehs_role_other_det', this, 'Others')">
+              <option value="">Select…</option>
+              <option>Desktop Engineer</option>
+              <option>Systems Engineer</option>
+              <option>Network &amp; Security Engineer</option>
+              <option>AV Engineer</option>
+              <option>Cloud Engineer</option>
+              <option>Application Engineer</option>
+              <option>Database Engineer</option>
+              <option>Others</option>
+            </select>
+            <div class="conditional" id="ehs_role_other_det">
+              <div class="conditional-label">Please specify role</div>
+              <input type="text" id="ehs_role_other" placeholder="Enter your role" />
+            </div>
           </div>
           <div class="form-group">
             <label>Primary Skill</label>
-            <select id="ehs_skill">
+            <select id="ehs_skill" onchange="conditionalShow('ehs_skill_other_det', this, 'Others')">
               <option value="">Select…</option>
-              <option>EHS Compliance</option>
-              <option>Fire Safety</option>
-              <option>Incident Investigation</option>
-              <option>HSE Auditing</option>
-              <option>Environmental Management</option>
-              <option>Risk Assessment</option>
-              <option>Safety Training</option>
-              <option>Other</option>
+              <option>End User Support</option>
+              <option>Systems &amp; Cloud</option>
+              <option>Microsoft</option>
+              <option>Systems Infra</option>
+              <option>Cloud</option>
+              <option>Application</option>
+              <option>Database</option>
+              <option>Cyber Security</option>
+              <option>Others</option>
             </select>
+            <div class="conditional" id="ehs_skill_other_det">
+              <div class="conditional-label">Please specify skill</div>
+              <input type="text" id="ehs_skill_other" placeholder="Enter your primary skill" />
+            </div>
           </div>
           <div class="form-group">
             <label>Reporting To</label>
@@ -398,15 +413,43 @@ function db() {
       </div>
       <div class="section-body">
         <div class="form-grid">
+
+          <!-- Emirates ID -->
           <div class="form-group">
-            <label>Visa Expiry Date</label>
-            <input type="date" id="ehs_visa_exp" />
+            <label>Emirates ID No.</label>
+            <input type="text" id="ehs_eid_no" placeholder="784-XXXX-XXXXXXX-X" />
+          </div>
+          <div class="form-group">
+            <label>Emirates ID Expiry</label>
+            <input type="date" id="ehs_eid_exp" />
+          </div>
+
+          <!-- Passport -->
+          <div class="form-group">
+            <label>Passport No.</label>
+            <input type="text" id="ehs_passport_no" placeholder="Passport number" />
+          </div>
+          <div class="form-group">
+            <label>Passport Issuing Country</label>
+            <input type="text" id="ehs_passport_country" placeholder="e.g. India" />
           </div>
           <div class="form-group">
             <label>Passport Expiry Date</label>
             <input type="date" id="ehs_passport_exp" />
           </div>
+
+          <!-- Visa -->
           <div class="form-group">
+            <label>Visa No.</label>
+            <input type="text" id="ehs_visa_no" placeholder="Visa / UID number" />
+          </div>
+          <div class="form-group">
+            <label>Visa Expiry Date</label>
+            <input type="date" id="ehs_visa_exp" />
+          </div>
+
+          <!-- Driving License -->
+          <div class="form-group full-width">
             <label>Driving License</label>
             <div class="radio-group">
               <label class="radio-opt"><input type="radio" name="ehs_driving" value="Yes" onchange="conditionalShow('ehs_driving_det', this, 'Yes')"> Yes</label>
@@ -430,13 +473,58 @@ function db() {
               </div>
             </div>
           </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Education -->
+    <div class="section-card" id="sec-ehs-edu">
+      <div class="section-header" onclick="toggleSection('sec-ehs-edu')">
+        <span class="section-num">5</span> Education Details
+        <span class="section-toggle">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Highest Degree</label>
+            <select id="ehs_degree">
+              <option value="">Select…</option>
+              <option>PhD / Doctorate</option>
+              <option>Master's (MSc / MBA / ME)</option>
+              <option>Bachelor's (BE / BTech / BSc / BA)</option>
+              <option>Diploma</option>
+              <option>High School / Secondary</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Specialization / Major</label>
+            <input type="text" id="ehs_specialization" placeholder="e.g. Computer Science, EHS, Civil" />
+          </div>
+          <div class="form-group">
+            <label>Institute / University</label>
+            <input type="text" id="ehs_institute" placeholder="Name of institution" />
+          </div>
+          <div class="form-group">
+            <label>Country</label>
+            <input type="text" id="ehs_edu_country" placeholder="Country of institution" />
+          </div>
+          <div class="form-group full-width">
+            <label>Degree Certificate Attestation Status</label>
+            <div class="radio-group">
+              <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Attested" onchange="styleRadio(this)"> Attested</label>
+              <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Pending" onchange="styleRadio(this)"> Pending</label>
+              <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Not Attested" onchange="styleRadio(this)"> Not Attested</label>
+              <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Not Required" onchange="styleRadio(this)"> Not Required</label>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="submit-area">
-      <button class="submit-btn" onclick="handleSubmit('tab1')">Save EHS Profile</button>
-      <button class="export-btn" onclick="exportJSON('tab1')">⬇ Export JSON</button>
+      <button class="submit-btn" onclick="handleSubmit('tab1')">Submit</button>
       <div class="submit-note">All fields are encrypted at rest. Use the Employee Hiring Form tab to complete the full onboarding.</div>
     </div>
   </div>
@@ -1225,8 +1313,7 @@ function db() {
     </div>
 
     <div class="submit-area">
-      <button class="submit-btn" onclick="handleSubmit('tab2')">Submit Hiring Form</button>
-      <button class="export-btn" onclick="exportJSON('tab2')">⬇ Export JSON</button>
+      <button class="submit-btn" onclick="handleSubmit('tab2')">Submit</button>
       <div class="submit-note">
         🔒 This form contains sensitive personal data. Ensure you are submitting on a secure, company-approved network.<br/>
         Data will be processed in accordance with Alpha Data's Privacy Policy and applicable UAE data protection laws.
@@ -1251,13 +1338,11 @@ function toggleSection(id) {
   document.getElementById(id).classList.toggle('collapsed');
 }
 
-// ======== CONDITIONAL SHOW ========
-function conditionalShow(panelId, radio, triggerValue) {
+// ======== CONDITIONAL SHOW (works for radio buttons and select dropdowns) ========
+function conditionalShow(panelId, el, triggerValue) {
   const panel = document.getElementById(panelId);
-  if (panel) {
-    panel.classList.toggle('show', radio.value === triggerValue);
-  }
-  styleRadio(radio);
+  if (panel) panel.classList.toggle('show', el.value === triggerValue);
+  if (el.type === 'radio') styleRadio(el);
 }
 
 // ======== STYLE HELPERS ========
@@ -1355,32 +1440,44 @@ function collectFormData(tabId) {
 function mapToSupabase(tabId, data) {
   if (tabId === 'tab1') {
     return {
-      candidate_name:       data.ehs_name         || null,
-      gender:               data.ehs_gender        || null,
-      personal_email:       data.ehs_email         || null,
-      mobile:               data.ehs_mobile        || null,
-      date_of_birth:        data.ehs_dob           || null,
-      marital_status:       data.ehs_marital       || null,
-      nationality:          data.ehs_nationality   || null,
-      emirate:              data.ehs_emirate       || null,
-      location:             data.ehs_location      || null,
-      role:                 data.ehs_role          || null,
-      skill:                data.ehs_skill         || null,
-      reporting_to:         data.ehs_reporting     || null,
-      exp_in_ehs_yrs:       data.ehs_exp           ? Number(data.ehs_exp)       : null,
-      total_experience_yrs: data.ehs_total_exp     ? Number(data.ehs_total_exp) : null,
-      avg_csat_score:       data.ehs_csat          ? Number(data.ehs_csat)      : null,
-      avg_fcr_pct:          data.ehs_fcr           ? Number(data.ehs_fcr)       : null,
-      awards:               data.ehs_awards        || null,
-      bilingual:            data.ehs_bilingual     || null,
-      visa_expiry:          data.ehs_visa_exp      || null,
-      passport_expiry:      data.ehs_passport_exp  || null,
-      driving_license:      data.ehs_driving       || null,
-      license_no:           data.ehs_lic_no        || null,
-      license_country:      data.ehs_lic_country   || null,
-      license_expiry:       data.ehs_lic_exp       || null,
-      notice_period:        data.ehs_notice        || null,
-      submitted_at:         new Date().toISOString(),
+      candidate_name:         data.ehs_name              || null,
+      gender:                 data.ehs_gender            || null,
+      personal_email:         data.ehs_email             || null,
+      mobile:                 data.ehs_mobile            || null,
+      date_of_birth:          data.ehs_dob               || null,
+      marital_status:         data.ehs_marital           || null,
+      nationality:            data.ehs_nationality       || null,
+      emirate:                data.ehs_emirate           || null,
+      location:               data.ehs_location          || null,
+      languages_known:        data.ehs_languages         || null,
+      role:                   data.ehs_role === 'Others' ? (data.ehs_role_other || 'Others') : (data.ehs_role || null),
+      skill:                  data.ehs_skill === 'Others' ? (data.ehs_skill_other || 'Others') : (data.ehs_skill || null),
+      reporting_to:           data.ehs_reporting         || null,
+      exp_in_ehs_yrs:         data.ehs_exp               ? Number(data.ehs_exp)       : null,
+      total_experience_yrs:   data.ehs_total_exp         ? Number(data.ehs_total_exp) : null,
+      avg_csat_score:         data.ehs_csat              ? Number(data.ehs_csat)      : null,
+      avg_fcr_pct:            data.ehs_fcr               ? Number(data.ehs_fcr)       : null,
+      awards:                 data.ehs_awards            || null,
+      notice_period:          data.ehs_notice            || null,
+      // Documents
+      emirates_id_no:         data.ehs_eid_no            || null,
+      emirates_id_expiry:     data.ehs_eid_exp           || null,
+      passport_no:            data.ehs_passport_no       || null,
+      passport_country:       data.ehs_passport_country  || null,
+      passport_expiry:        data.ehs_passport_exp      || null,
+      visa_no:                data.ehs_visa_no           || null,
+      visa_expiry:            data.ehs_visa_exp          || null,
+      driving_license:        data.ehs_driving           || null,
+      license_no:             data.ehs_lic_no            || null,
+      license_country:        data.ehs_lic_country       || null,
+      license_expiry:         data.ehs_lic_exp           || null,
+      // Education
+      degree:                 data.ehs_degree            || null,
+      specialization:         data.ehs_specialization    || null,
+      institute:              data.ehs_institute         || null,
+      edu_country:            data.ehs_edu_country       || null,
+      attestation_status:     data.ehs_attestation       || null,
+      submitted_at:           new Date().toISOString(),
     };
   } else {
     return {

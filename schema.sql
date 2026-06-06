@@ -21,7 +21,7 @@ create table if not exists ehs_profiles (
   nationality          text,
   emirate              text,
   location             text,
-  bilingual            text,
+  languages_known      text,
 
   -- Role & Skills
   role                 text,
@@ -36,13 +36,25 @@ create table if not exists ehs_profiles (
   avg_fcr_pct          numeric,
   awards               text,
 
-  -- Documents
-  visa_expiry          date,
+  -- Documents & Validity
+  emirates_id_no       text,
+  emirates_id_expiry   date,
+  passport_no          text,
+  passport_country     text,
   passport_expiry      date,
+  visa_no              text,
+  visa_expiry          date,
   driving_license      text,
   license_no           text,
   license_country      text,
-  license_expiry       date
+  license_expiry       date,
+
+  -- Education
+  degree               text,
+  specialization       text,
+  institute            text,
+  edu_country          text,
+  attestation_status   text
 );
 
 -- ──────────────────────────────────────────────────────────
