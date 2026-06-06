@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EHS Employee Data Collection System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ============================================================
+//  SUPABASE CONFIGURATION
+// ============================================================
+const SUPABASE_URL      = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_PUBLIC_KEY';
+// ============================================================
+let _db = null;
+function db() {
+  if (!_db) _db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return _db;
+}
+</script>
+<style>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2a5298;
+    --accent: #3b82f6;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --border: #d1dae6;
+    --text: #1a2533;
+    --muted: #64748b;
+    --success: #16a34a;
+    --error: #dc2626;
+    --input-bg: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+  header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; padding: 18px 32px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .logo { font-size: 20px; font-weight: 700; letter-spacing: 0.3px; }
+  .subtitle { font-size: 12px; opacity: 0.75; margin-top: 3px; }
+  .badge { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 3px 12px; font-size: 11px; margin-left: auto; white-space: nowrap; }
+
+  .container { max-width: 900px; margin: 28px auto; padding: 0 20px 80px; }
+
+  .info-banner {
+    background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px;
+    padding: 13px 18px; margin-bottom: 20px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #1e40af; line-height: 1.5;
+  }
+
+  /* Section cards */
+  .section-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .section-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; padding: 12px 20px; font-weight: 600; font-size: 13px;
+    display: flex; align-items: center; gap: 8px; cursor: pointer; letter-spacing: 0.3px;
+  }
+  .section-num { background: rgba(255,255,255,0.2); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .section-toggle { margin-left: auto; font-size: 18px; opacity: 0.7; transition: transform 0.2s; }
+  .section-card.collapsed .section-toggle { transform: rotate(-90deg); }
+  .section-card.collapsed .section-body { display: none; }
+  .section-body { padding: 20px; }
+
+  /* Grid */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-grid.col-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-grid.col-1 { grid-template-columns: 1fr; }
+  .full-width { grid-column: 1 / -1; }
+
+  /* Form elements */
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  label.field-label { font-weight: 500; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  label.field-label .req { color: var(--error); margin-left: 2px; }
+  input[type="text"], input[type="email"], input[type="tel"], input[type="date"],
+  input[type="number"], select, textarea {
+    border: 1.5px solid var(--border); border-radius: 7px; padding: 9px 12px;
+    font-size: 13.5px; color: var(--text); background: var(--input-bg);
+    transition: border-color 0.2s, box-shadow 0.2s; width: 100%; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* Required field error state */
+  .field-error input, .field-error select, .field-error textarea {
+    border-color: var(--error) !important;
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.1) !important;
+  }
+  .field-error .radio-group, .field-error .check-group { border: 1.5px solid var(--error); border-radius: 7px; padding: 6px; }
+  .error-msg { font-size: 11px; color: var(--error); margin-top: 3px; display: none; }
+  .field-error .error-msg { display: block; }
+
+  /* Radio / checkbox */
+  .radio-group, .check-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+  .radio-opt, .check-opt {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    background: var(--input-bg); border: 1.5px solid var(--border);
+    border-radius: 7px; padding: 7px 13px; font-size: 13px; transition: all 0.15s; user-select: none;
+  }
+  .radio-opt:hover, .check-opt:hover { border-color: var(--accent); background: #eff6ff; }
+  .radio-opt input, .check-opt input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+  .radio-opt.selected, .check-opt.selected { border-color: var(--accent); background: #eff6ff; }
+
+  /* Conditional panels */
+  .conditional { background: #f0f7ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 14px; margin-top: 10px; display: none; }
+  .conditional.show { display: block; }
+  .conditional-label { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  /* Submit */
+  .submit-area { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 24px; text-align: center; margin-top: 24px; }
+  .submit-btn {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: #fff; border: none; border-radius: 8px; padding: 14px 48px;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(30,58,95,0.25); letter-spacing: 0.3px;
+  }
+  .submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(30,58,95,0.3); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .submit-note { font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+
+  /* Error banner */
+  .error-banner { background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: var(--error); display: none; }
+  .error-banner.show { display: block; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 28px; right: 28px; background: #1a2533; color: #fff; padding: 13px 20px; border-radius: 10px; font-size: 13px; z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); transform: translateY(80px); opacity: 0; transition: all 0.3s; max-width: 340px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-left: 4px solid var(--success); }
+  .toast.error { border-left: 4px solid var(--error); }
+  .toast.info { border-left: 4px solid var(--accent); }
+
+  /* Success screen */
+  .success-screen { display: none; text-align: center; padding: 60px 20px; }
+  .success-screen.show { display: block; }
+  .success-icon { font-size: 56px; margin-bottom: 16px; }
+  .success-screen h2 { font-size: 22px; color: var(--primary); margin-bottom: 10px; }
+  .success-screen p { color: var(--muted); font-size: 14px; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+  @media (max-width: 640px) {
+    .form-grid, .form-grid.col-3 { grid-template-columns: 1fr; }
+    header { padding: 14px 16px; flex-wrap: wrap; }
+    .container { padding: 0 12px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">EHS Employee Data Collection System</div>
+    <div class="subtitle">Screening Form — Please complete all required fields</div>
+  </div>
+  <span class="badge">🔒 Confidential</span>
+</header>
+
+<div class="container">
+  <div class="info-banner">
+    ℹ️ &nbsp;Fields marked with <strong style="color:#dc2626;">*</strong> are mandatory. All information is treated as strictly confidential and used solely for employment screening purposes.
+  </div>
+
+  <div class="error-banner" id="error_banner">
+    ⚠️ Please fill in all required fields highlighted in red before submitting.
+  </div>
+
+  <!-- ── Section 1: Basic Information ── -->
+  <div class="section-card" id="sec1">
+    <div class="section-header" onclick="toggleSection('sec1')">
+      <span class="section-num">1</span> Basic Information
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+
+        <div class="form-group" id="fg_name">
+          <label class="field-label">Candidate Full Name <span class="req">*</span></label>
+          <input type="text" id="ehs_name" placeholder="As per Emirates ID / Passport" oninput="clearError('fg_name')" />
+          <span class="error-msg">Full name is required.</span>
+        </div>
+
+        <div class="form-group" id="fg_gender">
+          <label class="field-label">Gender <span class="req">*</span></label>
+          <div class="radio-group" id="rg_gender">
+            <label class="radio-opt"><input type="radio" name="ehs_gender" value="Male" onchange="styleRadio(this); clearError('fg_gender')"> Male</label>
+            <label class="radio-opt"><input type="radio" name="ehs_gender" value="Female" onchange="styleRadio(this); clearError('fg_gender')"> Female</label>
+          </div>
+          <span class="error-msg">Please select gender.</span>
+        </div>
+
+        <div class="form-group" id="fg_email">
+          <label class="field-label">Personal Email <span class="req">*</span></label>
+          <input type="email" id="ehs_email" placeholder="personal@example.com" oninput="clearError('fg_email')" />
+          <span class="error-msg">Valid email is required.</span>
+        </div>
+
+        <div class="form-group" id="fg_mobile">
+          <label class="field-label">Mobile Number <span class="req">*</span></label>
+          <input type="tel" id="ehs_mobile" placeholder="+971 XX XXX XXXX" oninput="clearError('fg_mobile')" />
+          <span class="error-msg">Mobile number is required.</span>
+        </div>
+
+        <div class="form-group" id="fg_dob">
+          <label class="field-label">Date of Birth <span class="req">*</span></label>
+          <input type="date" id="ehs_dob" onchange="clearError('fg_dob')" />
+          <span class="error-msg">Date of birth is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Marital Status</label>
+          <select id="ehs_marital">
+            <option value="">Select…</option>
+            <option>Single</option>
+            <option>Married</option>
+            <option>Divorced</option>
+            <option>Widowed</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="fg_nationality">
+          <label class="field-label">Nationality <span class="req">*</span></label>
+          <input type="text" id="ehs_nationality" placeholder="e.g. Indian" oninput="clearError('fg_nationality')" />
+          <span class="error-msg">Nationality is required.</span>
+        </div>
+
+        <div class="form-group" id="fg_emirate">
+          <label class="field-label">Emirate <span class="req">*</span></label>
+          <select id="ehs_emirate" onchange="clearError('fg_emirate')">
+            <option value="">Select Emirate…</option>
+            <option>Abu Dhabi</option>
+            <option>Dubai</option>
+            <option>Sharjah</option>
+            <option>Ajman</option>
+            <option>Umm Al Quwain</option>
+            <option>Ras Al Khaimah</option>
+            <option>Fujairah</option>
+          </select>
+          <span class="error-msg">Emirate is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Location / Work Site</label>
+          <input type="text" id="ehs_location" placeholder="e.g. EHS/Dubai" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Languages Known</label>
+          <input type="text" id="ehs_languages" placeholder="e.g. English, Arabic, Hindi" />
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 2: Role & Skills ── -->
+  <div class="section-card" id="sec2">
+    <div class="section-header" onclick="toggleSection('sec2')">
+      <span class="section-num">2</span> Role & Skills
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+
+        <div class="form-group" id="fg_role">
+          <label class="field-label">Role <span class="req">*</span></label>
+          <select id="ehs_role" onchange="conditionalShow('ehs_role_other_det', this, 'Others'); clearError('fg_role')">
+            <option value="">Select…</option>
+            <option>Desktop Engineer</option>
+            <option>Systems Engineer</option>
+            <option>Network &amp; Security Engineer</option>
+            <option>AV Engineer</option>
+            <option>Cloud Engineer</option>
+            <option>Application Engineer</option>
+            <option>Database Engineer</option>
+            <option>Others</option>
+          </select>
+          <div class="conditional" id="ehs_role_other_det">
+            <div class="conditional-label">Please specify role</div>
+            <input type="text" id="ehs_role_other" placeholder="Enter your role" />
+          </div>
+          <span class="error-msg">Role is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Primary Skill</label>
+          <select id="ehs_skill" onchange="conditionalShow('ehs_skill_other_det', this, 'Others')">
+            <option value="">Select…</option>
+            <option>End User Support</option>
+            <option>Systems &amp; Cloud</option>
+            <option>Microsoft</option>
+            <option>Systems Infra</option>
+            <option>Cloud</option>
+            <option>Application</option>
+            <option>Database</option>
+            <option>Cyber Security</option>
+            <option>Others</option>
+          </select>
+          <div class="conditional" id="ehs_skill_other_det">
+            <div class="conditional-label">Please specify skill</div>
+            <input type="text" id="ehs_skill_other" placeholder="Enter your primary skill" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Reporting To</label>
+          <input type="text" id="ehs_reporting" placeholder="Manager's name" />
+        </div>
+
+        <div class="form-group" id="fg_notice">
+          <label class="field-label">Notice Period <span class="req">*</span></label>
+          <select id="ehs_notice" onchange="clearError('fg_notice')">
+            <option value="">Select…</option>
+            <option>Immediate</option>
+            <option>1 Week</option>
+            <option>2 Weeks</option>
+            <option>1 Month</option>
+            <option>2 Months</option>
+            <option>3 Months</option>
+          </select>
+          <span class="error-msg">Notice period is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Experience in EHS (years)</label>
+          <input type="number" id="ehs_exp" min="0" max="50" placeholder="e.g. 5" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Total Work Experience (years)</label>
+          <input type="number" id="ehs_total_exp" min="0" max="50" placeholder="e.g. 10" />
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 3: Performance Metrics ── -->
+  <div class="section-card" id="sec3">
+    <div class="section-header" onclick="toggleSection('sec3')">
+      <span class="section-num">3</span> Performance Metrics
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="form-grid col-3">
+        <div class="form-group">
+          <label class="field-label">Avg CSAT Score</label>
+          <input type="number" id="ehs_csat" min="0" max="5" step="0.1" placeholder="e.g. 4.2" />
+        </div>
+        <div class="form-group">
+          <label class="field-label">Avg FCR %</label>
+          <input type="number" id="ehs_fcr" min="0" max="100" placeholder="e.g. 87" />
+        </div>
+        <div class="form-group">
+          <label class="field-label">Awards / Recognitions</label>
+          <input type="text" id="ehs_awards" placeholder="e.g. Employee of the Month" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 4: Documents & Validity ── -->
+  <div class="section-card" id="sec4">
+    <div class="section-header" onclick="toggleSection('sec4')">
+      <span class="section-num">4</span> Documents & Validity
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+
+        <div class="form-group" id="fg_eid_no">
+          <label class="field-label">Emirates ID No. <span class="req">*</span></label>
+          <input type="text" id="ehs_eid_no" placeholder="784-XXXX-XXXXXXX-X" oninput="clearError('fg_eid_no')" />
+          <span class="error-msg">Emirates ID number is required.</span>
+        </div>
+
+        <div class="form-group" id="fg_eid_exp">
+          <label class="field-label">Emirates ID Expiry <span class="req">*</span></label>
+          <input type="date" id="ehs_eid_exp" onchange="clearError('fg_eid_exp')" />
+          <span class="error-msg">Emirates ID expiry is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Passport No.</label>
+          <input type="text" id="ehs_passport_no" placeholder="Passport number" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Passport Issuing Country</label>
+          <input type="text" id="ehs_passport_country" placeholder="e.g. India" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Passport Expiry Date</label>
+          <input type="date" id="ehs_passport_exp" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Visa No.</label>
+          <input type="text" id="ehs_visa_no" placeholder="Visa / UID number" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Visa Expiry Date</label>
+          <input type="date" id="ehs_visa_exp" />
+        </div>
+
+        <div class="form-group full-width">
+          <label class="field-label">Driving License</label>
+          <div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="ehs_driving" value="Yes" onchange="conditionalShow('ehs_driving_det', this, 'Yes'); styleRadio(this)"> Yes</label>
+            <label class="radio-opt"><input type="radio" name="ehs_driving" value="No" onchange="conditionalShow('ehs_driving_det', this, 'Yes'); styleRadio(this)"> No</label>
+          </div>
+          <div class="conditional" id="ehs_driving_det">
+            <div class="conditional-label">Driving License Details</div>
+            <div class="form-grid col-3">
+              <div class="form-group">
+                <label class="field-label">License No.</label>
+                <input type="text" id="ehs_lic_no" placeholder="License number" />
+              </div>
+              <div class="form-group">
+                <label class="field-label">Issuing Country</label>
+                <input type="text" id="ehs_lic_country" placeholder="e.g. UAE" />
+              </div>
+              <div class="form-group">
+                <label class="field-label">Expiry Date</label>
+                <input type="date" id="ehs_lic_exp" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Section 5: Education ── -->
+  <div class="section-card" id="sec5">
+    <div class="section-header" onclick="toggleSection('sec5')">
+      <span class="section-num">5</span> Education Details
+      <span class="section-toggle">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="form-grid">
+
+        <div class="form-group" id="fg_degree">
+          <label class="field-label">Highest Degree <span class="req">*</span></label>
+          <select id="ehs_degree" onchange="clearError('fg_degree')">
+            <option value="">Select…</option>
+            <option>PhD / Doctorate</option>
+            <option>Master's (MSc / MBA / ME)</option>
+            <option>Bachelor's (BE / BTech / BSc / BA)</option>
+            <option>Diploma</option>
+            <option>High School / Secondary</option>
+            <option>Other</option>
+          </select>
+          <span class="error-msg">Degree is required.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Specialization / Major</label>
+          <input type="text" id="ehs_specialization" placeholder="e.g. Computer Science, Civil, EHS" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Institute / University</label>
+          <input type="text" id="ehs_institute" placeholder="Name of institution" />
+        </div>
+
+        <div class="form-group">
+          <label class="field-label">Country</label>
+          <input type="text" id="ehs_edu_country" placeholder="Country of institution" />
+        </div>
+
+        <div class="form-group full-width">
+          <label class="field-label">Degree Certificate Attestation Status <span class="req">*</span></label>
+          <div class="radio-group" id="rg_attestation">
+            <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Attested" onchange="styleRadio(this); clearError('fg_attestation')"> Attested</label>
+            <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Pending" onchange="styleRadio(this); clearError('fg_attestation')"> Pending</label>
+            <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Not Attested" onchange="styleRadio(this); clearError('fg_attestation')"> Not Attested</label>
+            <label class="radio-opt"><input type="radio" name="ehs_attestation" value="Not Required" onchange="styleRadio(this); clearError('fg_attestation')"> Not Required</label>
+          </div>
+          <span class="error-msg" id="fg_attestation_err" style="display:none;">Please select attestation status.</span>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-area" id="submit_area">
+    <button class="submit-btn" id="submit_btn" onclick="handleSubmit()">Submit Profile</button>
+    <div class="submit-note">
+      🔒 Your data is encrypted in transit and stored securely.<br>
+      By submitting you confirm the information provided is accurate to the best of your knowledge.
+    </div>
+  </div>
+
+  <!-- Success screen (shown after submission) -->
+  <div class="success-screen" id="success_screen">
+    <div class="success-icon">✅</div>
+    <h2>Profile Submitted Successfully</h2>
+    <p>Thank you. Your information has been received and will be reviewed by our team. You will be contacted if shortlisted for the next stage.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Section toggle ──────────────────────────────────────────
+function toggleSection(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+// ── Conditional show ────────────────────────────────────────
+function conditionalShow(panelId, el, triggerValue) {
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.toggle('show', el.value === triggerValue);
+  if (el.type === 'radio') styleRadio(el);
+}
+
+// ── Radio styling ───────────────────────────────────────────
+function styleRadio(el) {
+  document.querySelectorAll(`input[name="${el.name}"]`).forEach(r => {
+    r.closest('.radio-opt').classList.toggle('selected', r.checked);
+  });
+}
+
+// ── Error helpers ───────────────────────────────────────────
+function setError(groupId) {
+  document.getElementById(groupId)?.classList.add('field-error');
+}
+function clearError(groupId) {
+  document.getElementById(groupId)?.classList.remove('field-error');
+}
+
+// ── Validation ──────────────────────────────────────────────
+function validate() {
+  let valid = true;
+
+  const textReqs = [
+    ['fg_name',        document.getElementById('ehs_name')?.value.trim()],
+    ['fg_email',       document.getElementById('ehs_email')?.value.trim()],
+    ['fg_mobile',      document.getElementById('ehs_mobile')?.value.trim()],
+    ['fg_dob',         document.getElementById('ehs_dob')?.value],
+    ['fg_nationality', document.getElementById('ehs_nationality')?.value.trim()],
+    ['fg_eid_no',      document.getElementById('ehs_eid_no')?.value.trim()],
+    ['fg_eid_exp',     document.getElementById('ehs_eid_exp')?.value],
+  ];
+
+  const selectReqs = [
+    ['fg_emirate', document.getElementById('ehs_emirate')?.value],
+    ['fg_role',    document.getElementById('ehs_role')?.value],
+    ['fg_notice',  document.getElementById('ehs_notice')?.value],
+    ['fg_degree',  document.getElementById('ehs_degree')?.value],
+  ];
+
+  textReqs.forEach(([id, val]) => {
+    if (!val) { setError(id); valid = false; } else clearError(id);
+  });
+
+  selectReqs.forEach(([id, val]) => {
+    if (!val) { setError(id); valid = false; } else clearError(id);
+  });
+
+  // Gender radio
+  const genderPicked = document.querySelector('input[name="ehs_gender"]:checked');
+  if (!genderPicked) { setError('fg_gender'); valid = false; } else clearError('fg_gender');
+
+  // Attestation radio
+  const attestPicked = document.querySelector('input[name="ehs_attestation"]:checked');
+  const attestErr = document.getElementById('fg_attestation_err');
+  if (!attestPicked) {
+    document.getElementById('rg_attestation').style.border = '1.5px solid #dc2626';
+    document.getElementById('rg_attestation').style.borderRadius = '7px';
+    document.getElementById('rg_attestation').style.padding = '6px';
+    if (attestErr) attestErr.style.display = 'block';
+    valid = false;
+  } else {
+    document.getElementById('rg_attestation').style.border = '';
+    document.getElementById('rg_attestation').style.padding = '';
+    if (attestErr) attestErr.style.display = 'none';
+  }
+
+  // Email format
+  const email = document.getElementById('ehs_email')?.value.trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setError('fg_email'); valid = false;
+  }
+
+  return valid;
+}
+
+// ── Collect data ────────────────────────────────────────────
+function collectData() {
+  const g = id => document.getElementById(id)?.value || null;
+  const radio = name => document.querySelector(`input[name="${name}"]:checked`)?.value || null;
+  const role = g('ehs_role') === 'Others' ? (g('ehs_role_other') || 'Others') : g('ehs_role');
+  const skill = g('ehs_skill') === 'Others' ? (g('ehs_skill_other') || 'Others') : g('ehs_skill');
+  return {
+    candidate_name:       g('ehs_name'),
+    gender:               radio('ehs_gender'),
+    personal_email:       g('ehs_email'),
+    mobile:               g('ehs_mobile'),
+    date_of_birth:        g('ehs_dob'),
+    marital_status:       g('ehs_marital'),
+    nationality:          g('ehs_nationality'),
+    emirate:              g('ehs_emirate'),
+    location:             g('ehs_location'),
+    languages_known:      g('ehs_languages'),
+    role,
+    skill,
+    reporting_to:         g('ehs_reporting'),
+    notice_period:        g('ehs_notice'),
+    exp_in_ehs_yrs:       g('ehs_exp')        ? Number(g('ehs_exp'))        : null,
+    total_experience_yrs: g('ehs_total_exp')   ? Number(g('ehs_total_exp'))  : null,
+    avg_csat_score:       g('ehs_csat')        ? Number(g('ehs_csat'))       : null,
+    avg_fcr_pct:          g('ehs_fcr')         ? Number(g('ehs_fcr'))        : null,
+    awards:               g('ehs_awards'),
+    emirates_id_no:       g('ehs_eid_no'),
+    emirates_id_expiry:   g('ehs_eid_exp'),
+    passport_no:          g('ehs_passport_no'),
+    passport_country:     g('ehs_passport_country'),
+    passport_expiry:      g('ehs_passport_exp'),
+    visa_no:              g('ehs_visa_no'),
+    visa_expiry:          g('ehs_visa_exp'),
+    driving_license:      radio('ehs_driving'),
+    license_no:           g('ehs_lic_no'),
+    license_country:      g('ehs_lic_country'),
+    license_expiry:       g('ehs_lic_exp'),
+    degree:               g('ehs_degree'),
+    specialization:       g('ehs_specialization'),
+    institute:            g('ehs_institute'),
+    edu_country:          g('ehs_edu_country'),
+    attestation_status:   radio('ehs_attestation'),
+    submitted_at:         new Date().toISOString(),
+  };
+}
+
+// ── Submit ──────────────────────────────────────────────────
+async function handleSubmit() {
+  const banner = document.getElementById('error_banner');
+  banner.classList.remove('show');
+
+  if (!validate()) {
+    banner.classList.add('show');
+    // Scroll to first error
+    const first = document.querySelector('.field-error');
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  if (SUPABASE_URL.includes('YOUR_PROJECT_ID')) {
+    showToast('⚠️ Supabase not configured yet.', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('submit_btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const { error } = await db().from('ehs_profiles').insert([collectData()]);
+    if (error) throw new Error(error.message);
+    // Show success screen
+    document.getElementById('submit_area').style.display = 'none';
+    document.querySelectorAll('.section-card').forEach(c => c.style.display = 'none');
+    document.querySelector('.info-banner').style.display = 'none';
+    document.getElementById('success_screen').classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) {
+    showToast(`❌ Submission failed: ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Submit Profile';
+  }
+}
+
+// ── Toast ───────────────────────────────────────────────────
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 4500);
+}
+</script>
+</body>
+</html>
